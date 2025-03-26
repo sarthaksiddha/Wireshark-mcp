@@ -1,156 +1,186 @@
-# Claude MCP (Model Context Protocol)
+# Wireshark MCP (Model Context Protocol)
 
-A flexible framework for managing interactions with Claude and other AI systems with advanced context handling.
+A specialized protocol for extracting, structuring, and transmitting network packet data from Wireshark to AI systems like Claude in a context-optimized format.
 
-## What is Model Context Protocol?
+## What is Wireshark MCP?
 
-Model Context Protocol (MCP) is a standardized approach for:
+Wireshark MCP provides a standardized approach for translating complex network packet captures into structured contexts that AI models can effectively process and analyze. This bridges the gap between low-level network data and high-level AI understanding.
 
-1. **Context Management**: Efficiently handling context windows with large language models
-2. **Prompt Engineering**: Structured templates and techniques for optimal AI interaction
-3. **Session Continuity**: Maintaining coherent, long-running conversations with AI systems
-4. **Memory Management**: Storing and retrieving relevant information across interactions
-5. **Output Parsing**: Consistently extracting structured data from AI responses
+The protocol:
+1. **Extracts** relevant packet data from Wireshark captures
+2. **Structures** this information in AI-friendly formats
+3. **Summarizes** large packet collections into digestible contexts
+4. **Translates** protocol-specific details into natural language
+5. **Contextualizes** network flows for more meaningful analysis
 
-This framework aims to provide an interface layer between applications and AI models like Claude, making it easier to build AI-enhanced applications with better context awareness.
+## Key Features
 
-## Features
+- **Packet Summarization**: Convert large pcap files into token-optimized summaries
+- **Protocol Intelligence**: Enhanced context for common protocols (HTTP, DNS, TLS, etc.)
+- **Flow Tracking**: Group related packets into conversation flows
+- **Anomaly Highlighting**: Emphasize unusual or suspicious patterns
+- **Query Templates**: Pre-built prompts for common network analysis tasks
+- **Visualization Generation**: Create text-based representations of network patterns
+- **Multi-level Abstraction**: View data from raw bytes to high-level behaviors
 
-- **Flexible Context Windows**: Smart management of token limits and context optimization
-- **Memory Hierarchies**: Working, short-term, and long-term memory systems
-- **Templating System**: Reusable prompt templates with variable substitution
-- **Schema Validation**: Ensure AI outputs match expected formats
-- **Conversation Threading**: Maintain parallel conversation branches
-- **Context Compression**: Efficient summarization of previous exchanges
-- **Plugin Support**: Extend functionality with custom handlers
-
-## Getting Started
-
-### Installation
+## Installation
 
 ```bash
-pip install claude-mcp
+pip install wireshark-mcp
 ```
 
-### Basic Usage
+For full functionality:
+1. Ensure Wireshark is installed on your system
+2. Install tshark (Wireshark command-line interface)
+3. Configure your API access for the AI model (Claude)
+
+## Basic Usage
 
 ```python
-from claude_mcp import MCPSession, PromptTemplate
-from claude_mcp.models import Claude
+from wireshark_mcp import WiresharkMCP, Protocol
+from wireshark_mcp.formatter import ClaudeFormatter
 
-# Initialize a session with Claude
-session = MCPSession(
-    model=Claude(api_key="your_api_key"),
-    memory_config={"working_memory": 10000, "long_term_memory": True}
+# Initialize with a pcap file
+mcp = WiresharkMCP("capture.pcap")
+
+# Generate a basic packet summary
+context = mcp.generate_context(
+    max_packets=100,
+    focus_protocols=[Protocol.HTTP, Protocol.DNS],
+    include_statistics=True
 )
 
-# Define a prompt template
-introduction_template = PromptTemplate(
-    """
-    <context>
-    User is working on: {project}
-    Previous conversation summary: {summary}
-    </context>
-    
-    <instructions>
-    You are assisting with {task_type} tasks.
-    Focus on {focus_area}.
-    </instructions>
-    
-    <message>{user_input}</message>
-    """
+# Format it for Claude
+formatter = ClaudeFormatter()
+claude_prompt = formatter.format_context(
+    context, 
+    query="What unusual patterns do you see in this HTTP traffic?"
 )
 
-# Start a conversation
-response = session.send(
-    introduction_template.format(
-        project="Data analysis project",
-        summary="Previously discussed dataset structure and cleaning approach",
-        task_type="data science",
-        focus_area="visualization techniques",
-        user_input="I need help creating an effective dashboard for my sales data"
-    )
+# Send to Claude (using your preferred method)
+# claude_response = send_to_claude(claude_prompt)
+```
+
+## Advanced Usage
+
+### Flow Analysis
+
+```python
+# Extract conversation flows
+flows = mcp.extract_flows(
+    client_ip="192.168.1.5",
+    include_details=True,
+    max_flows=5
 )
 
-print(response.content)
+# Generate Claude context for flow analysis
+flow_prompt = formatter.format_flows(
+    flows,
+    query="Analyze the TLS handshake in these flows and identify any issues"
+)
+```
 
-# Continue the conversation
-follow_up = session.send("What libraries would you recommend for interactive charts?")
-print(follow_up.content)
+### Security Analysis
+
+```python
+# Focus on security-relevant patterns
+security_context = mcp.security_analysis(
+    detect_scanning=True,
+    detect_malware_patterns=True,
+    highlight_unusual_ports=True,
+    check_encryption=True
+)
+
+security_prompt = formatter.format_security_context(
+    security_context,
+    query="Evaluate the security implications of these network patterns"
+)
+```
+
+### Protocol Insights
+
+```python
+# Deep dive into DNS traffic
+dns_insights = mcp.protocol_insights(
+    protocol=Protocol.DNS,
+    extract_queries=True,
+    analyze_response_codes=True,
+    detect_tunneling=True
+)
+
+dns_prompt = formatter.format_protocol_insights(
+    dns_insights,
+    query="What do these DNS patterns suggest about the network activity?"
+)
+```
+
+## Example: Analyzing HTTP Traffic
+
+```python
+from wireshark_mcp import WiresharkMCP, Protocol, Filter
+from wireshark_mcp.formatter import ClaudeFormatter
+from wireshark_mcp.ai import ClaudeClient
+
+# Extract HTTP traffic
+mcp = WiresharkMCP("web_traffic.pcap")
+http_context = mcp.extract_protocol(
+    protocol=Protocol.HTTP,
+    filter=Filter("ip.addr == 192.168.1.5"),
+    include_headers=True,
+    include_body=False,
+    max_conversations=10
+)
+
+# Format for Claude with specific query
+formatter = ClaudeFormatter()
+prompt = formatter.format_protocol_analysis(
+    http_context,
+    query="Review these HTTP requests and identify any potential security vulnerabilities"
+)
+
+# Send to Claude
+claude = ClaudeClient(api_key="your_api_key")
+response = claude.analyze(prompt)
+print(response.analysis)
 ```
 
 ## Architecture
 
-The Claude MCP system consists of several key components:
+The Wireshark MCP system consists of several components:
 
-1. **MCPSession**: The main interface for managing conversations
-2. **ContextManager**: Handles the organization and optimization of context windows
-3. **MemorySystem**: Manages different types of memory storage and retrieval
-4. **PromptEngine**: Processes templates and structures interactions
-5. **ResponseProcessor**: Parses and validates AI outputs
-6. **ModelConnector**: Interfaces with specific AI models (Claude, etc.)
+1. **Packet Extractors**: Interface with Wireshark/tshark to extract packet data
+2. **Context Generators**: Process packet data into optimized contexts
+3. **Protocol Analyzers**: Protocol-specific understanding and analysis
+4. **Formatters**: Structure data for specific AI systems (Claude)
+5. **Query Templates**: Pre-built analysis queries for common tasks
+6. **AI Connectors**: Optional interfaces to AI systems
 
-## Advanced Features
+## For Developers
 
-### Context Compression
-
-Automatically summarize and compress previous exchanges to maximize context window usage:
+### Extending Protocol Support
 
 ```python
-# Enable automatic compression when context exceeds 80% of limit
-session.context_manager.enable_compression(threshold=0.8)
-```
+from wireshark_mcp.protocols import BaseProtocolAnalyzer
 
-### Structured Output
+class CustomProtocolAnalyzer(BaseProtocolAnalyzer):
+    protocol_name = "MY_PROTOCOL"
+    
+    def extract_features(self, packets):
+        # Custom extraction logic
+        return features
+    
+    def generate_context(self, features, detail_level=2):
+        # Convert to AI-friendly context
+        return context
 
-Specify and validate response formats:
-
-```python
-from claude_mcp.schemas import JSONSchema
-
-# Define expected output format
-product_schema = JSONSchema({
-    "type": "object",
-    "properties": {
-        "name": {"type": "string"},
-        "price": {"type": "number"},
-        "features": {"type": "array", "items": {"type": "string"}}
-    },
-    "required": ["name", "price"]
-})
-
-# Request structured data
-response = session.send(
-    "Suggest a product for home office",
-    output_schema=product_schema
-)
-
-# Access validated data
-product = response.structured_data
-print(f"Suggested product: {product['name']} (${product['price']})")
-```
-
-### Memory Persistence
-
-Save and restore conversation state:
-
-```python
-# Save session state
-session_data = session.save()
-
-# Later, restore the session
-new_session = MCPSession.load(session_data)
+# Register your custom analyzer
+wireshark_mcp.register_protocol_analyzer(CustomProtocolAnalyzer())
 ```
 
 ## Contributing
 
-We welcome contributions to the Claude MCP project! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Acknowledgments
-
-- Inspired by best practices in prompt engineering and context management
-- Built to enhance interactions with Anthropic's Claude and similar AI systems
