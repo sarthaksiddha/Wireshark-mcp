@@ -1,123 +1,210 @@
-from typing import Optional, List, Union
+"""
+Filter module for handling Wireshark display filters.
+"""
+
+import re
+from typing import List, Optional, Union
+
 
 class Filter:
     """
-    Represents a Wireshark/tshark display filter.
-    Provides methods to construct and manipulate filter expressions.
+    Class for building and validating Wireshark display filters.
+    
+    This class helps create and manipulate display filters that can be
+    used with tshark and Wireshark to filter packet data.
     """
     
-    def __init__(self, expression: str):
+    # Simple validator for filter syntax
+    FILTER_REGEX = re.compile(r'^[\w\s\.\(\)!=<>"\[\]&|]+$')
+    
+    def __init__(self, filter_str: str = ""):
         """
-        Initialize with a filter expression.
+        Initialize a filter with an optional filter string.
         
         Args:
-            expression: Wireshark display filter expression
+            filter_str: Initial filter string
+            
+        Raises:
+            ValueError: If the filter string has invalid syntax
         """
-        self.expression = expression
+        self.filter_str = filter_str
+        if filter_str and not self._validate(filter_str):
+            raise ValueError(f"Invalid filter syntax: {filter_str}")
     
     def __str__(self) -> str:
-        return self.expression
+        """Return the filter string."""
+        return self.filter_str
     
-    def __repr__(self) -> str:
-        return f"Filter({self.expression!r})"
+    def __bool__(self) -> bool:
+        """Return True if the filter is not empty."""
+        return bool(self.filter_str)
     
-    def __and__(self, other: 'Filter') -> 'Filter':
-        """Combine two filters with AND operator"""
-        return Filter(f"({self.expression}) and ({other.expression})")
-    
-    def __or__(self, other: 'Filter') -> 'Filter':
-        """Combine two filters with OR operator"""
-        return Filter(f"({self.expression}) or ({other.expression})")
-    
-    def __invert__(self) -> 'Filter':
-        """Negate a filter"""
-        return Filter(f"not ({self.expression})")
-    
-    @staticmethod
-    def ip(address: str) -> 'Filter':
+    def _validate(self, filter_str: str) -> bool:
         """
-        Create a filter for a specific IP address.
+        Validate the syntax of a display filter.
+        
+        This is a simple validator. For full validation, the filter
+        would need to be checked against actual tshark/Wireshark filter syntax.
         
         Args:
-            address: IP address to filter
+            filter_str: Filter string to validate
             
         Returns:
-            Filter object
+            True if the filter appears valid, False otherwise
         """
-        return Filter(f"ip.addr == {address}")
+        if not filter_str:
+            return True
+        
+        # Basic syntax check
+        if not self.FILTER_REGEX.match(filter_str):
+            return False
+        
+        # Check for balanced parentheses
+        if filter_str.count('(') != filter_str.count(')'):
+            return False
+        
+        # Check for balanced quotes
+        if filter_str.count('"') % 2 != 0:
+            return False
+        
+        return True
     
-    @staticmethod
-    def port(port: Union[int, str], protocol: Optional[str] = None) -> 'Filter':
+    def add(self, condition: str, operator: str = "and") -> 'Filter':
         """
-        Create a filter for a specific port.
+        Add a condition to the filter.
         
         Args:
-            port: Port number or name
-            protocol: Optional protocol (tcp/udp)
+            condition: Filter condition to add
+            operator: Operator to use ('and' or 'or')
             
         Returns:
-            Filter object
+            Self for method chaining
+            
+        Raises:
+            ValueError: If the condition has invalid syntax
         """
-        if protocol:
-            return Filter(f"{protocol}.port == {port}")
-        return Filter(f"tcp.port == {port} or udp.port == {port}")
+        if not self._validate(condition):
+            raise ValueError(f"Invalid filter condition: {condition}")
+        
+        if not self.filter_str:
+            self.filter_str = condition
+        else:
+            if operator.lower() not in ("and", "or"):
+                raise ValueError(f"Invalid operator: {operator}")
+            
+            self.filter_str = f"({self.filter_str}) {operator.lower()} ({condition})"
+        
+        return self
     
-    @staticmethod
-    def protocol(name: str) -> 'Filter':
+    def or_add(self, condition: str) -> 'Filter':
+        """
+        Add a condition with 'or' operator.
+        
+        Args:
+            condition: Filter condition to add
+            
+        Returns:
+            Self for method chaining
+        """
+        return self.add(condition, operator="or")
+    
+    @classmethod
+    def from_protocol(cls, protocol: str) -> 'Filter':
         """
         Create a filter for a specific protocol.
         
         Args:
-            name: Protocol name
+            protocol: Protocol name
             
         Returns:
-            Filter object
+            Filter instance
         """
-        return Filter(name.lower())
+        return cls(f"{protocol.lower()}")
     
-    @staticmethod
-    def host(name: str) -> 'Filter':
+    @classmethod
+    def from_ip(cls, ip: str, direction: Optional[str] = None) -> 'Filter':
         """
-        Create a filter for a specific host.
+        Create a filter for an IP address.
         
         Args:
-            name: Hostname
+            ip: IP address
+            direction: Optional direction ('src', 'dst', or None for both)
             
         Returns:
-            Filter object
+            Filter instance
         """
-        return Filter(f"host {name}")
+        if direction and direction.lower() not in ('src', 'dst'):
+            raise ValueError("Direction must be 'src', 'dst', or None")
+        
+        if direction:
+            return cls(f"ip.{direction.lower()} == {ip}")
+        else:
+            return cls(f"ip.addr == {ip}")
     
-    @staticmethod
-    def conversation(ip1: str, ip2: str) -> 'Filter':
+    @classmethod
+    def from_port(cls, port: Union[int, str], protocol: Optional[str] = "tcp", direction: Optional[str] = None) -> 'Filter':
         """
-        Create a filter for a conversation between two IPs.
+        Create a filter for a port number.
         
         Args:
-            ip1: First IP address
-            ip2: Second IP address
+            port: Port number
+            protocol: Protocol ('tcp' or 'udp')
+            direction: Optional direction ('src', 'dst', or None for both)
             
         Returns:
-            Filter object
+            Filter instance
         """
-        return Filter(f"(ip.src == {ip1} and ip.dst == {ip2}) or (ip.src == {ip2} and ip.dst == {ip1})")
+        if protocol.lower() not in ('tcp', 'udp'):
+            raise ValueError("Protocol must be 'tcp' or 'udp'")
+        
+        if direction and direction.lower() not in ('src', 'dst'):
+            raise ValueError("Direction must be 'src', 'dst', or None")
+        
+        if direction:
+            return cls(f"{protocol.lower()}.{direction.lower()}port == {port}")
+        else:
+            return cls(f"{protocol.lower()}.port == {port}")
     
-    @staticmethod
-    def combine(filters: List['Filter'], operator: str = "and") -> 'Filter':
+    @classmethod
+    def from_host(cls, host: str) -> 'Filter':
         """
-        Combine multiple filters with the specified operator.
+        Create a filter for a host name.
         
         Args:
-            filters: List of filters to combine
-            operator: Operator to use ("and" or "or")
+            host: Host name
+            
+        Returns:
+            Filter instance
+        """
+        return cls(f"host {host}")
+    
+    @classmethod
+    def combine(cls, filters: List[Union[str, 'Filter']], operator: str = "and") -> 'Filter':
+        """
+        Combine multiple filters with an operator.
+        
+        Args:
+            filters: List of filters or filter strings
+            operator: Operator to use ('and' or 'or')
             
         Returns:
             Combined filter
+            
+        Raises:
+            ValueError: If no filters are provided
         """
         if not filters:
-            return Filter("")
-        if len(filters) == 1:
-            return filters[0]
-            
-        expressions = [f"({f.expression})" for f in filters]
-        return Filter(f" {operator} ".join(expressions))
+            raise ValueError("No filters provided")
+        
+        if operator.lower() not in ("and", "or"):
+            raise ValueError(f"Invalid operator: {operator}")
+        
+        # Convert any strings to Filter objects
+        filter_objs = [f if isinstance(f, Filter) else cls(f) for f in filters]
+        
+        # Combine the filters
+        combined_str = " ".join([f"({str(f)})" for f in filter_objs if f])
+        if combined_str:
+            combined_str = combined_str.replace(") (", f") {operator.lower()} (")
+        
+        return cls(combined_str)
