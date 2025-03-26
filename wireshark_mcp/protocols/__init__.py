@@ -1,107 +1,75 @@
-from enum import Enum, auto
-from typing import Dict, Type, List
+"""
+Protocol module that defines supported protocols and protocol analyzers.
+"""
+
+from enum import Enum
+from typing import Dict, Type, Any
 
 class Protocol(Enum):
-    """
-    Enumeration of common network protocols that can be analyzed.
-    """
-    # Layer 2 protocols
-    ETHERNET = "eth"
+    """Enum of supported network protocols."""
+    HTTP = "HTTP"
+    HTTPS = "HTTPS"
+    DNS = "DNS"
+    TLS = "TLS"
+    TCP = "TCP"
+    UDP = "UDP"
+    ICMP = "ICMP"
+    DHCP = "DHCP"
+    ARP = "ARP"
+    FTP = "FTP"
+    SMTP = "SMTP"
+    SSH = "SSH"
+    TELNET = "TELNET"
+    NTP = "NTP"
+    SSDP = "SSDP"
+    MDNS = "MDNS"
+    QUIC = "QUIC"
+    SMB = "SMB"
     
-    # Layer 3 protocols
-    IP = "ip"
-    IPV6 = "ipv6"
-    ICMP = "icmp"
-    ICMPV6 = "icmpv6"
-    ARP = "arp"
-    
-    # Layer 4 protocols
-    TCP = "tcp"
-    UDP = "udp"
-    SCTP = "sctp"
-    
-    # Application protocols
-    HTTP = "http"
-    HTTPS = "https"
-    DNS = "dns"
-    DHCP = "dhcp"
-    SMTP = "smtp"
-    FTP = "ftp"
-    SSH = "ssh"
-    TELNET = "telnet"
-    TLS = "tls"
-    SSL = "ssl"
-    RTP = "rtp"
-    SIP = "sip"
-    RTSP = "rtsp"
-    MQTT = "mqtt"
-    COAP = "coap"
-    SMB = "smb"
-    NTP = "ntp"
-    SNMP = "snmp"
-    LDAP = "ldap"
-    RADIUS = "radius"
-    KERBEROS = "kerberos"
-    
-    # Misc protocols
-    LLDP = "lldp"
-    STP = "stp"
-    IGMP = "igmp"
-    
-    def __str__(self) -> str:
+    def __str__(self):
         return self.value
 
-# Import analyzer base class and concrete implementations
+# Import protocol analyzers
 from .base import BaseProtocolAnalyzer
-from .http import HTTPAnalyzer
-from .dns import DNSAnalyzer
-from .tls import TLSAnalyzer
+from .http import HTTPProtocolAnalyzer
 
 # Registry of protocol analyzers
-_protocol_analyzers: Dict[Protocol, BaseProtocolAnalyzer] = {
-    Protocol.HTTP: HTTPAnalyzer(),
-    Protocol.DNS: DNSAnalyzer(),
-    Protocol.TLS: TLSAnalyzer(),
+_PROTOCOL_ANALYZERS: Dict[Protocol, Type[BaseProtocolAnalyzer]] = {
+    Protocol.HTTP: HTTPProtocolAnalyzer,
+    # Add more protocol analyzers as they are implemented
 }
 
-def register_protocol_analyzer(analyzer: BaseProtocolAnalyzer) -> None:
+def get_protocol_analyzer(protocol: Protocol) -> Type[BaseProtocolAnalyzer]:
     """
-    Register a new protocol analyzer.
+    Get the protocol analyzer class for a given protocol.
     
     Args:
-        analyzer: Protocol analyzer instance
-    """
-    protocol = getattr(Protocol, analyzer.protocol_name.upper(), None)
-    if not protocol:
-        raise ValueError(f"Unknown protocol: {analyzer.protocol_name}")
+        protocol: Protocol enum value
     
-    _protocol_analyzers[protocol] = analyzer
-
-def get_protocol_analyzer(protocol: Protocol) -> BaseProtocolAnalyzer:
-    """
-    Get the analyzer for a specific protocol.
-    
-    Args:
-        protocol: Protocol to get analyzer for
+    Returns:
+        Protocol analyzer class
         
-    Returns:
-        Protocol analyzer instance or None if not available
+    Raises:
+        ValueError: If no analyzer is available for the protocol
     """
-    return _protocol_analyzers.get(protocol)
-
-def get_available_analyzers() -> List[Protocol]:
-    """
-    Get the list of protocols with available analyzers.
+    if protocol not in _PROTOCOL_ANALYZERS:
+        raise ValueError(f"No analyzer available for protocol: {protocol}")
     
-    Returns:
-        List of protocols
-    """
-    return list(_protocol_analyzers.keys())
+    return _PROTOCOL_ANALYZERS[protocol]
 
-__all__ = [
-    'Protocol', 
-    'BaseProtocolAnalyzer',
-    'register_protocol_analyzer',
-    'get_protocol_analyzer',
-    'get_available_analyzers'
-]
+def register_protocol_analyzer(analyzer_class: Type[BaseProtocolAnalyzer]) -> None:
+    """
+    Register a custom protocol analyzer.
+    
+    Args:
+        analyzer_class: Protocol analyzer class to register
+    """
+    protocol_name = analyzer_class.protocol_name
+    try:
+        protocol = Protocol(protocol_name)
+        _PROTOCOL_ANALYZERS[protocol] = analyzer_class
+    except ValueError:
+        # If the protocol is not in the enum, add it dynamically
+        # This is a placeholder - Python's Enum doesn't support dynamic addition
+        # In a real implementation, this would need a different approach
+        print(f"Warning: Protocol {protocol_name} not in Protocol enum, skipping registration")
