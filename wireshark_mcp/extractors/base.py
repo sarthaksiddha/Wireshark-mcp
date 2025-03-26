@@ -1,42 +1,31 @@
+"""
+Base extractor abstract class.
+"""
+
 from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Optional
 
-from ..protocols import Protocol
-from ..filter import Filter
 
 class BaseExtractor(ABC):
     """
     Abstract base class for packet extractors.
-    Defines the interface that all extractors must implement.
+    
+    Packet extractors are responsible for extracting packet data from
+    packet capture files in a format that can be processed by protocol analyzers.
     """
     
-    def __init__(self, capture_file: Optional[str] = None):
-        """
-        Initialize with an optional capture file path.
-        
-        Args:
-            capture_file: Path to the packet capture file
-        """
-        self.capture_file = capture_file
-    
-    def set_capture_file(self, capture_file: str):
-        """
-        Set or change the capture file path.
-        
-        Args:
-            capture_file: New capture file path
-        """
-        self.capture_file = capture_file
-    
     @abstractmethod
-    def extract_packets(self, max_packets: int = 1000, 
-                      protocols: Optional[List[Protocol]] = None) -> List[Dict[str, Any]]:
+    def extract_packets(self, 
+                       pcap_path: str, 
+                       filter_str: Optional[str] = None,
+                       max_packets: Optional[int] = None) -> List[Dict[str, Any]]:
         """
-        Extract packets from the capture file.
+        Extract packets from a pcap file.
         
         Args:
+            pcap_path: Path to the pcap file
+            filter_str: Optional Wireshark display filter string
             max_packets: Maximum number of packets to extract
-            protocols: Optional list of protocols to filter by
             
         Returns:
             List of packet dictionaries
@@ -44,58 +33,46 @@ class BaseExtractor(ABC):
         pass
     
     @abstractmethod
-    def generate_statistics(self) -> Dict[str, Any]:
+    def extract_packet_count(self, 
+                           pcap_path: str, 
+                           filter_str: Optional[str] = None) -> int:
         """
-        Generate statistical information about the capture.
+        Count the number of packets in a pcap file.
         
+        Args:
+            pcap_path: Path to the pcap file
+            filter_str: Optional Wireshark display filter string
+            
         Returns:
-            Dictionary of statistics
+            Number of matching packets
         """
         pass
     
     @abstractmethod
-    def extract_flows(self, filter_expr: Optional[Filter] = None,
-                    include_details: bool = True,
-                    max_flows: int = 10) -> Dict[str, Any]:
+    def extract_protocols(self, pcap_path: str) -> Dict[str, int]:
         """
-        Extract conversation flows from the capture.
+        Extract protocol distribution from a pcap file.
         
         Args:
-            filter_expr: Optional filter to apply
-            include_details: Whether to include packet details
-            max_flows: Maximum number of flows to extract
+            pcap_path: Path to the pcap file
             
         Returns:
-            Dictionary of flow information
+            Dictionary mapping protocol names to packet counts
         """
         pass
     
     @abstractmethod
-    def extract_protocol(self, protocol: Protocol,
-                       filter_expr: Optional[Filter] = None,
-                       **kwargs) -> Dict[str, Any]:
+    def extract_conversations(self, 
+                            pcap_path: str,
+                            protocol: Optional[str] = None) -> Dict[str, Dict[str, Any]]:
         """
-        Extract data for a specific protocol.
+        Extract conversation statistics from a pcap file.
         
         Args:
-            protocol: The protocol to extract
-            filter_expr: Optional filter to apply
-            **kwargs: Protocol-specific options
+            pcap_path: Path to the pcap file
+            protocol: Optional protocol filter
             
         Returns:
-            Protocol-specific data
-        """
-        pass
-    
-    @abstractmethod
-    def get_protocol_analyzer(self, protocol: Protocol):
-        """
-        Get a protocol-specific analyzer.
-        
-        Args:
-            protocol: The protocol to get an analyzer for
-            
-        Returns:
-            Protocol analyzer or None if not available
+            Dictionary of conversation statistics
         """
         pass
