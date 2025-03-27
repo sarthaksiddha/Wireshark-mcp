@@ -23,6 +23,22 @@ The protocol:
 - **Visualization Generation**: Create text-based representations of network patterns
 - **Multi-level Abstraction**: View data from raw bytes to high-level behaviors
 
+## Project Status
+
+This project is under active development. Currently implemented features:
+
+- Core packet extraction using tshark
+- HTTP and DNS protocol analysis
+- Claude-specific formatting for optimal AI analysis
+- Security analysis for common threats
+- Basic flow tracking and analysis
+
+Coming soon:
+- Additional protocol analyzers (TLS, SMTP, etc.)
+- Advanced visualization options
+- Expanded threat detection capabilities
+- Web interface for easier usage
+
 ## Installation
 
 ```bash
@@ -38,7 +54,7 @@ For full functionality:
 
 ```python
 from wireshark_mcp import WiresharkMCP, Protocol
-from wireshark_mcp.formatter import ClaudeFormatter
+from wireshark_mcp.formatters import ClaudeFormatter
 
 # Initialize with a pcap file
 mcp = WiresharkMCP("capture.pcap")
@@ -114,11 +130,11 @@ dns_prompt = formatter.format_protocol_insights(
 )
 ```
 
-## Example: Analyzing HTTP Traffic
+### Direct Claude API Integration
 
 ```python
 from wireshark_mcp import WiresharkMCP, Protocol, Filter
-from wireshark_mcp.formatter import ClaudeFormatter
+from wireshark_mcp.formatters import ClaudeFormatter
 from wireshark_mcp.ai import ClaudeClient
 
 # Extract HTTP traffic
@@ -177,9 +193,50 @@ class CustomProtocolAnalyzer(BaseProtocolAnalyzer):
 wireshark_mcp.register_protocol_analyzer(CustomProtocolAnalyzer())
 ```
 
+### Building Custom Formatters
+
+You can create formatters for AI systems other than Claude by extending the BaseFormatter class:
+
+```python
+from wireshark_mcp.formatters import BaseFormatter
+
+class CustomAIFormatter(BaseFormatter):
+    def format_context(self, context, query=None):
+        # Format the context for your specific AI system
+        # ...
+        return formatted_context
+
+# Use your custom formatter
+formatter = CustomAIFormatter()
+ai_prompt = formatter.format_context(context, query="Analyze this traffic")
+```
+
+## Examples
+
+See the `examples/` directory for more detailed usage examples:
+
+- Basic packet analysis with Claude
+- DNS traffic analysis and anomaly detection
+- Security analysis for threat hunting
+- Customizing protocol analysis for specific needs
+
+## Requirements
+
+- Python 3.8+
+- Wireshark/tshark installed on the system
+- `pyshark`, `scapy`, `pydantic`, and `rich` packages
+- Optional: API access to Claude or other AI systems
+
 ## Contributing
 
-Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
+Contributions are welcome! Areas where help is especially appreciated:
+
+- Additional protocol analyzers
+- Performance optimizations
+- Documentation and examples
+- Testing with diverse packet captures
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for details on how to contribute.
 
 ## License
 
