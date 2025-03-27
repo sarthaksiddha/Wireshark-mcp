@@ -1,30 +1,37 @@
 """
-Base extractor abstract class.
+Base extractor interface for Wireshark MCP.
+
+This module provides the base class for all packet extractors,
+defining the common interface that all extractors must implement.
 """
 
 from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Optional
 
-
 class BaseExtractor(ABC):
     """
-    Abstract base class for packet extractors.
+    Base class for all packet extractors.
     
-    Packet extractors are responsible for extracting packet data from
-    packet capture files in a format that can be processed by protocol analyzers.
+    This abstract class defines the common interface that all
+    packet extractors must implement to ensure consistent
+    behavior across the system.
     """
+    
+    def __init__(self):
+        """Initialize the base extractor."""
+        pass
     
     @abstractmethod
     def extract_packets(self, 
-                       pcap_path: str, 
+                       capture_file: str, 
                        filter_str: Optional[str] = None,
                        max_packets: Optional[int] = None) -> List[Dict[str, Any]]:
         """
-        Extract packets from a pcap file.
+        Extract packets from a capture file.
         
         Args:
-            pcap_path: Path to the pcap file
-            filter_str: Optional Wireshark display filter string
+            capture_file: Path to the capture file
+            filter_str: Optional filter string to apply
             max_packets: Maximum number of packets to extract
             
         Returns:
@@ -33,46 +40,14 @@ class BaseExtractor(ABC):
         pass
     
     @abstractmethod
-    def extract_packet_count(self, 
-                           pcap_path: str, 
-                           filter_str: Optional[str] = None) -> int:
+    def _process_packets(self, packets: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
-        Count the number of packets in a pcap file.
+        Process raw packet data into a standardized format.
         
         Args:
-            pcap_path: Path to the pcap file
-            filter_str: Optional Wireshark display filter string
+            packets: Raw packet data
             
         Returns:
-            Number of matching packets
-        """
-        pass
-    
-    @abstractmethod
-    def extract_protocols(self, pcap_path: str) -> Dict[str, int]:
-        """
-        Extract protocol distribution from a pcap file.
-        
-        Args:
-            pcap_path: Path to the pcap file
-            
-        Returns:
-            Dictionary mapping protocol names to packet counts
-        """
-        pass
-    
-    @abstractmethod
-    def extract_conversations(self, 
-                            pcap_path: str,
-                            protocol: Optional[str] = None) -> Dict[str, Dict[str, Any]]:
-        """
-        Extract conversation statistics from a pcap file.
-        
-        Args:
-            pcap_path: Path to the pcap file
-            protocol: Optional protocol filter
-            
-        Returns:
-            Dictionary of conversation statistics
+            Processed packet data
         """
         pass
