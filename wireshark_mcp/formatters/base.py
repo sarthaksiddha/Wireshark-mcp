@@ -1,147 +1,177 @@
 """
-Base formatter interface for Wireshark MCP.
-
-This module provides the base class for all formatters in the system,
-defining the common interface that all AI-specific formatters must implement.
+Base formatter class that defines the interface for all formatters.
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, Union, List
+from typing import Dict, Any, Optional, List
+
 
 class BaseFormatter(ABC):
     """
-    Base class for all formatters.
+    Abstract base class for formatters.
     
-    This abstract class defines the common interface that all
-    AI-specific formatters must implement to ensure consistent
-    behavior across the system.
+    Formatters convert packet analysis data into formats optimized for specific
+    AI systems. Each target system (Claude, GPT, etc.) should have its own
+    formatter that inherits from this base class.
     """
-    
-    def __init__(self):
-        """Initialize the base formatter."""
-        pass
     
     @abstractmethod
     def format_context(self, 
                       context: Dict[str, Any], 
                       query: Optional[str] = None) -> str:
         """
-        Format a general packet context.
+        Format a general context for the AI system.
         
         Args:
-            context: Dictionary containing context data
-            query: Optional query to append to the context
+            context: Context dictionary from the analysis
+            query: Optional query to include with the context
             
         Returns:
-            String containing formatted context
+            Formatted string for the AI system
         """
         pass
     
     @abstractmethod
-    def _format_protocol_context(self, 
-                               protocol_context: Dict[str, Any], 
-                               protocol_name: str) -> str:
-        """
-        Format a protocol-specific context.
-        
-        Args:
-            protocol_context: Dictionary containing protocol data
-            protocol_name: Name of the protocol
-            
-        Returns:
-            String containing formatted protocol context
-        """
-        pass
-    
-    @abstractmethod
-    def _format_packet_sample(self, 
-                            packet: Dict[str, Any], 
-                            index: int) -> str:
-        """
-        Format a packet for display in the context.
-        
-        Args:
-            packet: Dictionary containing packet data
-            index: Packet index for reference
-            
-        Returns:
-            String containing formatted packet
-        """
-        pass
-    
-    @abstractmethod
-    def _truncate_context(self, context: str) -> str:
-        """
-        Truncate a context string to fit within the allowed length.
-        
-        Args:
-            context: Context string to truncate
-            
-        Returns:
-            Truncated context string
-        """
-        pass
-    
     def format_protocol_analysis(self, 
-                               protocol_context: Dict[str, Any],
+                               protocol_data: Dict[str, Any], 
                                query: Optional[str] = None) -> str:
         """
-        Format protocol-specific analysis.
+        Format protocol-specific analysis data.
         
         Args:
-            protocol_context: Dictionary containing protocol analysis
-            query: Optional query to append to the context
+            protocol_data: Protocol analysis data
+            query: Optional query to include with the analysis
             
         Returns:
-            String containing formatted protocol analysis
+            Formatted string for the AI system
         """
-        # Default implementation - should be overridden by subclasses
-        raise NotImplementedError("Subclasses must implement format_protocol_analysis")
+        pass
     
-    def format_flows(self,
-                   flows: Dict[str, Any],
-                   query: Optional[str] = None) -> str:
+    @abstractmethod
+    def format_flows(self, 
+                    flows: Dict[str, Any], 
+                    query: Optional[str] = None) -> str:
         """
-        Format flow analysis.
+        Format network flow data.
         
         Args:
-            flows: Dictionary containing flow analysis
-            query: Optional query to append to the context
+            flows: Flow analysis data
+            query: Optional query to include with the flow data
             
         Returns:
-            String containing formatted flow analysis
+            Formatted string for the AI system
         """
-        # Default implementation - should be overridden by subclasses
-        raise NotImplementedError("Subclasses must implement format_flows")
+        pass
     
-    def format_security_context(self,
-                              security_context: Dict[str, Any],
+    @abstractmethod
+    def format_security_context(self, 
+                              security_data: Dict[str, Any], 
                               query: Optional[str] = None) -> str:
         """
-        Format security analysis.
+        Format security analysis data.
         
         Args:
-            security_context: Dictionary containing security analysis
-            query: Optional query to append to the context
+            security_data: Security analysis data
+            query: Optional query to include with the security data
             
         Returns:
-            String containing formatted security analysis
+            Formatted string for the AI system
         """
-        # Default implementation - should be overridden by subclasses
-        raise NotImplementedError("Subclasses must implement format_security_context")
+        pass
     
-    def format_protocol_insights(self,
-                              protocol_insights: Dict[str, Any],
-                              query: Optional[str] = None) -> str:
+    @abstractmethod
+    def format_protocol_insights(self, 
+                               insights: Dict[str, Any],
+                               query: Optional[str] = None) -> str:
         """
-        Format protocol-specific insights.
+        Format protocol insights data.
         
         Args:
-            protocol_insights: Dictionary containing protocol insights
-            query: Optional query to append to the context
+            insights: Protocol insights data
+            query: Optional query to include with the insights
             
         Returns:
-            String containing formatted protocol insights
+            Formatted string for the AI system
         """
-        # Default implementation - should be overridden by subclasses
-        raise NotImplementedError("Subclasses must implement format_protocol_insights")
+        pass
+    
+    def add_query(self, content: str, query: Optional[str]) -> str:
+        """
+        Add a query to the formatted content.
+        
+        Args:
+            content: Formatted content
+            query: Query to add
+            
+        Returns:
+            Content with the query added
+        """
+        if not query:
+            return content
+            
+        return f"{content}\n\n{query}"
+    
+    def format_packet_samples(self,
+                             packets: List[Dict[str, Any]], 
+                             max_packets: int = 5,
+                             include_details: bool = True) -> str:
+        """
+        Format a sample of packets for display.
+        
+        Args:
+            packets: List of packet dictionaries
+            max_packets: Maximum number of packets to include
+            include_details: Whether to include packet details
+            
+        Returns:
+            Formatted packet samples
+        """
+        if not packets:
+            return "No packets available."
+            
+        # Default base implementation - subclasses should override for better formatting
+        formatted = "Packet Samples:\n\n"
+        
+        for i, packet in enumerate(packets[:max_packets]):
+            if i > 0:
+                formatted += "\n" + "-" * 40 + "\n\n"
+                
+            formatted += f"Packet {i+1}:\n"
+            formatted += f"  Time: {packet.get('timestamp', 'N/A')}\n"
+            formatted += f"  Length: {packet.get('length', 'N/A')} bytes\n"
+            
+            # Basic IP info
+            if 'ip' in packet:
+                ip = packet['ip']
+                formatted += f"  Source IP: {ip.get('src', 'N/A')}\n"
+                formatted += f"  Destination IP: {ip.get('dst', 'N/A')}\n"
+            
+            # Transport layer info
+            if 'tcp' in packet:
+                tcp = packet['tcp']
+                formatted += f"  Protocol: TCP\n"
+                formatted += f"  Source Port: {tcp.get('srcport', 'N/A')}\n"
+                formatted += f"  Destination Port: {tcp.get('dstport', 'N/A')}\n"
+            elif 'udp' in packet:
+                udp = packet['udp']
+                formatted += f"  Protocol: UDP\n"
+                formatted += f"  Source Port: {udp.get('srcport', 'N/A')}\n"
+                formatted += f"  Destination Port: {udp.get('dstport', 'N/A')}\n"
+            
+            # Include application layer details if requested
+            if include_details:
+                formatted += "\n  Application Layer:\n"
+                for layer_name, layer_data in packet.items():
+                    if layer_name not in ('ip', 'tcp', 'udp', 'frame', 'eth', 'timestamp', 'length', 'layers'):
+                        formatted += f"    {layer_name.upper()}:\n"
+                        for field, value in layer_data.items():
+                            # Skip binary data or large fields
+                            if isinstance(value, str) and len(value) > 100:
+                                value = value[:100] + "... [truncated]"
+                            formatted += f"      {field}: {value}\n"
+        
+        # Indicate if more packets are available
+        if len(packets) > max_packets:
+            formatted += f"\n... and {len(packets) - max_packets} more packets"
+            
+        return formatted
