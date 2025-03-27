@@ -127,3 +127,143 @@ class TsharkExtractor(BaseExtractor):
             logger.debug(f"tshark stdout: {result.stdout[:500]}...")
             logger.debug(f"tshark stderr: {result.stderr}")
             raise ValueError(f"Failed to parse tshark output: {e}")
+            
+    def _process_packets(self, packets: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Process and clean up packet data from tshark.
+        
+        Args:
+            packets: Raw packet data from tshark
+            
+        Returns:
+            Processed packet data
+        """
+        processed = []
+        
+        for packet in packets:
+            # Extract timestamp
+            timestamp = None
+            if "_source" in packet and "timestamp" in packet["_source"]:
+                timestamp = packet["_source"]["timestamp"]
+            
+            # Extract layers
+            layers = {}
+            if "_source" in packet and "layers" in packet["_source"]:
+                raw_layers = packet["_source"]["layers"]
+                
+                # Process each layer
+                for layer_name, layer_data in raw_layers.items():
+                    if layer_name == "frame":
+                        # Get basic frame information
+                        frame_number = layer_data.get("frame.number", ["0"])[0]
+                        frame_len = layer_data.get("frame.len", ["0"])[0]
+                        
+                        layers["frame"] = {
+                            "number": frame_number,
+                            "length": frame_len,
+                            "protocols": layer_data.get("frame.protocols", [""])[0],
+                        }
+                    elif layer_name == "eth":
+                        # Ethernet layer
+                        layers["eth"] = {
+                            "src": layer_data.get("eth.src", [""])[0],
+                            "dst": layer_data.get("eth.dst", [""])[0],
+                            "type": layer_data.get("eth.type", [""])[0],
+                        }
+                    elif layer_name == "ip":
+                        # IP layer
+                        layers["ip"] = {
+                            "src": layer_data.get("ip.src", [""])[0],
+                            "dst": layer_data.get("ip.dst", [""])[0],
+                            "version": layer_data.get("ip.version", [""])[0],
+                            "ttl": layer_data.get("ip.ttl", [""])[0],
+                            "protocol": layer_data.get("ip.proto", [""])[0],
+                        }
+                    elif layer_name == "tcp":
+                        # TCP layer
+                        flags = {}
+                        for flag_name in ["syn", "ack", "fin", "rst", "psh", "urg"]:
+                            flag_key = f"tcp.flags.{flag_name}"
+                            if flag_key in layer_data:
+                                flags[flag_name] = layer_data[flag_key][0]
+                        
+                        layers["tcp"] = {
+                            "srcport": layer_data.get("tcp.srcport", [""])[0],
+                            "dstport": layer_data.get("tcp.dstport", [""])[0],
+                            "seq": layer_data.get("tcp.seq", [""])[0],
+                            "ack": layer_data.get("tcp.ack", [""])[0],
+                            "flags": flags,
+                        }
+                    elif layer_name == "udp":
+                        # UDP layer
+                        layers["udp"] = {
+                            "srcport": layer_data.get("udp.srcport", [""])[0],
+                            "dstport": layer_data.get("udp.dstport", [""])[0],
+                            "length": layer_data.get("udp.length", [""])[0],
+                        }
+                    elif layer_name == "http":
+                        # HTTP layer - special handling for request/response
+                        http_data = {}
+                        
+                        # Check if this is a request or response
+                        if "http.request" in layer_data:
+                            http_data["type"] = "request"
+                            http_data["method"] = layer_data.get("http.request.method", [""])[0]
+                            http_data["uri"] = layer_data.get("http.request.uri", [""])[0]
+                            http_data["version"] = layer_data.get("http.request.version", [""])[0]
+                        elif "http.response" in layer_data:
+                            http_data["type"] = "response"
+                            http_data["code"] = layer_data.get("http.response.code", [""])[0]
+                            http_data["phrase"] = layer_data.get("http.response.phrase", [""])[0]
+                        
+                        # Extract headers
+                        headers = {}
+                        for key, value in layer_data.items():
+                            if key.startswith("http.") and len(value) > 0:
+                                # Clean up header names
+                                header_name = key.replace("http.", "")
+                                if header_name not in ["request", "response", "request.method", 
+                                                      "request.uri", "request.version", 
+                                                      "response.code", "response.phrase"]:
+                                    headers[header_name] = value[0]
+                        
+                        http_data["headers"] = headers
+                        layers["http"] = http_data
+                    else:
+                        # Generic layer handling for other protocols
+                        # Just store basic info
+                        layers[layer_name] = {
+                            "protocol": layer_name.upper()
+                        }
+                        
+                        # Add some key layer data without overloading
+                        layer_fields = {}
+                        for key, value in layer_data.items():
+                            if len(value) > 0 and not key.startswith("_"):
+                                # Take just the first value and limit total fields
+                                if len(layer_fields) < 10:  # Limit fields per layer
+                                    layer_fields[key] = value[0]
+                        
+                        layers[layer_name].update(layer_fields)
+            
+            # Build final packet structure
+            processed_packet = {
+                "timestamp": timestamp,
+                "length": int(layers.get("frame", {}).get("length", 0)),
+                "layers": [],
+            }
+            
+            # Add layer data to the packet
+            for layer_name, layer_data in layers.items():
+                processed_packet[layer_name] = layer_data
+                
+                # Also add to layers array for consistent access
+                processed_packet["layers"].append({
+                    "name": layer_name,
+                    "protocol": layer_name.upper(),
+                    "data": layer_data
+                })
+            
+            processed.append(processed_packet)
+        
+        return processed
