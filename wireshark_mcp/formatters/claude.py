@@ -176,6 +176,127 @@ class ClaudeFormatter(BaseFormatter):
         # Join with newlines
         return "\n".join(formatted_lines)
     
+    def _format_transaction(self, 
+                          transaction: Dict[str, Any], 
+                          protocol_name: str) -> str:
+        """Format a protocol transaction/conversation."""
+        formatted_lines = []
+        
+        if protocol_name == "HTTP":
+            # Special formatting for HTTP transactions
+            request = transaction.get('query', {})
+            response = transaction.get('response', {})
+            
+            # Request information
+            if request:
+                method = request.get('method', 'GET')
+                uri = request.get('uri', '')
+                host = request.get('headers', {}).get('host', '')
+                
+                formatted_lines.extend([
+                    f"#### Request",
+                    f"- Method: {method}",
+                    f"- URI: {uri}",
+                    f"- Host: {host}",
+                ])
+                
+                # Add headers (limited)
+                headers = request.get('headers', {})
+                if headers:
+                    formatted_lines.append("- Headers:")
+                    for name, value in list(headers.items())[:5]:  # Limit to 5 headers
+                        formatted_lines.append(f"  - {name}: {value}")
+            
+            # Response information
+            if response:
+                status_code = response.get('status_code', '')
+                status_phrase = response.get('status_phrase', '')
+                content_type = response.get('headers', {}).get('content-type', '')
+                
+                formatted_lines.extend([
+                    f"#### Response",
+                    f"- Status: {status_code} {status_phrase}",
+                    f"- Content-Type: {content_type}",
+                ])
+                
+                # Add headers (limited)
+                headers = response.get('headers', {})
+                if headers:
+                    formatted_lines.append("- Headers:")
+                    for name, value in list(headers.items())[:5]:  # Limit to 5 headers
+                        formatted_lines.append(f"  - {name}: {value}")
+            
+        elif protocol_name == "DNS":
+            # Special formatting for DNS transactions
+            query = transaction.get('query', {})
+            response = transaction.get('response', {})
+            
+            # Query information
+            if query:
+                formatted_lines.append("#### Query")
+                
+                # DNS questions
+                questions = query.get('questions', [])
+                if questions:
+                    formatted_lines.append("- Questions:")
+                    for question in questions:
+                        name = question.get('name', '')
+                        qtype = question.get('type', '')
+                        formatted_lines.append(f"  - {name} ({qtype})")
+            
+            # Response information
+            if response:
+                formatted_lines.append("#### Response")
+                
+                # Response code
+                resp_code = response.get('response_code', 0)
+                resp_name = response.get('response_code_name', '')
+                formatted_lines.append(f"- Response Code: {resp_code} ({resp_name})")
+                
+                # DNS answers
+                answers = response.get('answers', [])
+                if answers:
+                    formatted_lines.append("- Answers:")
+                    for answer in answers:
+                        name = answer.get('name', '')
+                        ans_type = answer.get('type', '')
+                        data = answer.get('data', '')
+                        ttl = answer.get('ttl', '')
+                        formatted_lines.append(f"  - {name} ({ans_type}): {data} (TTL: {ttl})")
+        
+        else:
+            # Generic transaction formatting for other protocols
+            if 'timestamp' in transaction:
+                timestamp = transaction.get('timestamp', 0)
+                formatted_lines.append(f"- Time: {timestamp}")
+            
+            # If there's a query/response structure
+            if 'query' in transaction and 'response' in transaction:
+                # Query information
+                query = transaction.get('query', {})
+                formatted_lines.append("#### Request/Query")
+                for key, value in query.items():
+                    if key != 'timestamp' and not isinstance(value, (dict, list)):
+                        formatted_key = ' '.join(word.capitalize() for word in key.split('_'))
+                        formatted_lines.append(f"- {formatted_key}: {value}")
+                
+                # Response information
+                response = transaction.get('response', {})
+                formatted_lines.append("#### Response")
+                for key, value in response.items():
+                    if key != 'timestamp' and not isinstance(value, (dict, list)):
+                        formatted_key = ' '.join(word.capitalize() for word in key.split('_'))
+                        formatted_lines.append(f"- {formatted_key}: {value}")
+            else:
+                # Just list the transaction fields
+                for key, value in transaction.items():
+                    if not isinstance(value, (dict, list)):
+                        formatted_key = ' '.join(word.capitalize() for word in key.split('_'))
+                        formatted_lines.append(f"- {formatted_key}: {value}")
+        
+        # Join with newlines
+        return "\n".join(formatted_lines)
+    
     def _format_packet_sample(self, 
                             packet: Dict[str, Any], 
                             index: int) -> str:
@@ -199,6 +320,38 @@ class ClaudeFormatter(BaseFormatter):
         
         # Format as a simple line
         return f"Packet {index}: {timestamp} | {protocol} | {src} -> {dst} | {length} bytes"
+    
+    def _format_alert(self, 
+                    alert: Dict[str, Any], 
+                    formatted_context: List[str]) -> None:
+        """Format a security alert and append to the context."""
+        # Get basic alert information
+        alert_type = alert.get('type', 'Unknown')
+        description = alert.get('description', 'No description')
+        source_ip = alert.get('source_ip', None)
+        port = alert.get('port', None)
+        protocol = alert.get('protocol', None)
+        
+        # Format the alert header
+        header = f"- **{alert_type.replace('_', ' ').title()}**"
+        if source_ip:
+            header += f" from {source_ip}"
+        if port:
+            header += f" on port {port}"
+            if protocol:
+                header += f"/{protocol}"
+        
+        formatted_context.append(header)
+        formatted_context.append(f"  - {description}")
+        
+        # Add additional details if present
+        details = alert.get('details', {})
+        if isinstance(details, dict) and details:
+            # Show a few key details
+            for key, value in list(details.items())[:3]:  # Limit to 3 details
+                if not isinstance(value, (dict, list)):
+                    formatted_key = ' '.join(word.capitalize() for word in key.split('_'))
+                    formatted_context.append(f"  - {formatted_key}: {value}")
     
     def _summarize_transaction(self, 
                              transaction: Dict[str, Any], 
