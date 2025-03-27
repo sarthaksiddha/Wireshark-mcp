@@ -145,3 +145,80 @@ class ClaudeFormatter(BaseFormatter):
             full_context += f"\n\n## Query\n{query}"
         
         return full_context
+    
+    def format_protocol_analysis(self, 
+                               protocol_context: Dict[str, Any],
+                               query: Optional[str] = None) -> str:
+        """
+        Format protocol-specific analysis for Claude.
+        
+        Args:
+            protocol_context: Dictionary containing protocol analysis
+            query: Optional query to append to the context
+            
+        Returns:
+            String containing Claude-optimized protocol analysis
+        """
+        protocol_name = protocol_context.get('protocol', 'Unknown')
+        
+        # Start with protocol header
+        formatted_context = [
+            f"# {protocol_name} Protocol Analysis",
+            "",
+            "## Protocol Summary",
+        ]
+        
+        # Add summary statistics if available
+        summary = protocol_context.get('summary', {})
+        if summary:
+            for key, value in summary.items():
+                # Convert underscores to spaces and capitalize
+                formatted_key = ' '.join(word.capitalize() for word in key.split('_'))
+                formatted_context.append(f"- {formatted_key}: {value}")
+        
+        # Add conversations/transactions if available
+        transactions = protocol_context.get('transactions', [])
+        if transactions:
+            formatted_context.extend([
+                "",
+                f"## {protocol_name} Conversations",
+            ])
+            
+            for i, transaction in enumerate(transactions):
+                formatted_context.append(f"\n### Conversation {i+1}")
+                formatted_context.append(self._format_transaction(transaction, protocol_name))
+        
+        # Add insights if available
+        insights = protocol_context.get('insights', [])
+        if insights:
+            formatted_context.extend([
+                "",
+                "## Analysis Insights",
+            ])
+            
+            for insight in insights:
+                insight_type = insight.get('type', 'observation')
+                description = insight.get('description', 'No description')
+                formatted_context.extend([
+                    f"- **{insight_type.replace('_', ' ').title()}**: {description}"
+                ])
+                
+                # Add details for some insight types
+                if 'domains' in insight:
+                    domains = insight.get('domains', [])
+                    domain_str = ', '.join(domains)
+                    formatted_context.append(f"  - Domains: {domain_str}")
+        
+        # Join all sections and check length
+        full_context = "\n".join(formatted_context)
+        
+        # Truncate if necessary
+        if len(full_context) > self.max_context_length:
+            logger.warning("Protocol context exceeds maximum length, truncating")
+            full_context = self._truncate_context(full_context)
+        
+        # Append query if provided
+        if query:
+            full_context += f"\n\n## Query\n{query}"
+        
+        return full_context
