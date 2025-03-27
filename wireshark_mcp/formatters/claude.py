@@ -320,8 +320,8 @@ class ClaudeFormatter(BaseFormatter):
         return full_context
     
     def format_security_context(self,
-                               security_context: Dict[str, Any],
-                               query: Optional[str] = None) -> str:
+                              security_context: Dict[str, Any],
+                              query: Optional[str] = None) -> str:
         """
         Format security analysis for Claude.
         
@@ -474,8 +474,8 @@ class ClaudeFormatter(BaseFormatter):
         return full_context
     
     def format_protocol_insights(self,
-                               protocol_insights: Dict[str, Any],
-                               query: Optional[str] = None) -> str:
+                              protocol_insights: Dict[str, Any],
+                              query: Optional[str] = None) -> str:
         """
         Format protocol-specific insights for Claude.
         
