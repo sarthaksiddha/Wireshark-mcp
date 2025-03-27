@@ -1,145 +1,147 @@
 """
-Base formatter abstract class.
+Base formatter interface for Wireshark MCP.
+
+This module provides the base class for all formatters in the system,
+defining the common interface that all AI-specific formatters must implement.
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional
-
+from typing import Dict, Any, Optional, Union, List
 
 class BaseFormatter(ABC):
     """
-    Abstract base class for formatters.
+    Base class for all formatters.
     
-    Formatters convert extracted packet data and analysis contexts
-    into formats suitable for specific AI models.
+    This abstract class defines the common interface that all
+    AI-specific formatters must implement to ensure consistent
+    behavior across the system.
     """
     
+    def __init__(self):
+        """Initialize the base formatter."""
+        pass
+    
     @abstractmethod
-    def format_context(self,
-                      context: Dict[str, Any],
-                      query: Optional[str] = None,
-                      max_tokens: Optional[int] = None) -> str:
+    def format_context(self, 
+                      context: Dict[str, Any], 
+                      query: Optional[str] = None) -> str:
         """
-        Format a general context for the AI model.
+        Format a general packet context.
         
         Args:
-            context: Context dictionary from WiresharkMCP.generate_context()
-            query: Optional query to include with the context
-            max_tokens: Optional maximum token limit
+            context: Dictionary containing context data
+            query: Optional query to append to the context
             
         Returns:
-            Formatted context string
+            String containing formatted context
         """
         pass
     
     @abstractmethod
+    def _format_protocol_context(self, 
+                               protocol_context: Dict[str, Any], 
+                               protocol_name: str) -> str:
+        """
+        Format a protocol-specific context.
+        
+        Args:
+            protocol_context: Dictionary containing protocol data
+            protocol_name: Name of the protocol
+            
+        Returns:
+            String containing formatted protocol context
+        """
+        pass
+    
+    @abstractmethod
+    def _format_packet_sample(self, 
+                            packet: Dict[str, Any], 
+                            index: int) -> str:
+        """
+        Format a packet for display in the context.
+        
+        Args:
+            packet: Dictionary containing packet data
+            index: Packet index for reference
+            
+        Returns:
+            String containing formatted packet
+        """
+        pass
+    
+    @abstractmethod
+    def _truncate_context(self, context: str) -> str:
+        """
+        Truncate a context string to fit within the allowed length.
+        
+        Args:
+            context: Context string to truncate
+            
+        Returns:
+            Truncated context string
+        """
+        pass
+    
+    def format_protocol_analysis(self, 
+                               protocol_context: Dict[str, Any],
+                               query: Optional[str] = None) -> str:
+        """
+        Format protocol-specific analysis.
+        
+        Args:
+            protocol_context: Dictionary containing protocol analysis
+            query: Optional query to append to the context
+            
+        Returns:
+            String containing formatted protocol analysis
+        """
+        # Default implementation - should be overridden by subclasses
+        raise NotImplementedError("Subclasses must implement format_protocol_analysis")
+    
     def format_flows(self,
-                    flows: Dict[str, Any],
-                    query: Optional[str] = None,
-                    max_tokens: Optional[int] = None) -> str:
+                   flows: Dict[str, Any],
+                   query: Optional[str] = None) -> str:
         """
-        Format flow analysis data for the AI model.
+        Format flow analysis.
         
         Args:
-            flows: Flow data from WiresharkMCP.extract_flows()
-            query: Optional query to include with the context
-            max_tokens: Optional maximum token limit
+            flows: Dictionary containing flow analysis
+            query: Optional query to append to the context
             
         Returns:
-            Formatted flow analysis string
+            String containing formatted flow analysis
         """
-        pass
+        # Default implementation - should be overridden by subclasses
+        raise NotImplementedError("Subclasses must implement format_flows")
     
-    @abstractmethod
     def format_security_context(self,
                               security_context: Dict[str, Any],
-                              query: Optional[str] = None,
-                              max_tokens: Optional[int] = None) -> str:
+                              query: Optional[str] = None) -> str:
         """
-        Format security analysis data for the AI model.
+        Format security analysis.
         
         Args:
-            security_context: Security data from WiresharkMCP.security_analysis()
-            query: Optional query to include with the context
-            max_tokens: Optional maximum token limit
+            security_context: Dictionary containing security analysis
+            query: Optional query to append to the context
             
         Returns:
-            Formatted security analysis string
+            String containing formatted security analysis
         """
-        pass
+        # Default implementation - should be overridden by subclasses
+        raise NotImplementedError("Subclasses must implement format_security_context")
     
-    @abstractmethod
     def format_protocol_insights(self,
-                               protocol_insights: Dict[str, Any],
-                               query: Optional[str] = None,
-                               max_tokens: Optional[int] = None) -> str:
+                              protocol_insights: Dict[str, Any],
+                              query: Optional[str] = None) -> str:
         """
-        Format protocol-specific insights for the AI model.
+        Format protocol-specific insights.
         
         Args:
-            protocol_insights: Protocol data from WiresharkMCP.protocol_insights()
-            query: Optional query to include with the context
-            max_tokens: Optional maximum token limit
+            protocol_insights: Dictionary containing protocol insights
+            query: Optional query to append to the context
             
         Returns:
-            Formatted protocol insights string
+            String containing formatted protocol insights
         """
-        pass
-    
-    @abstractmethod
-    def format_protocol_analysis(self,
-                               protocol_data: Dict[str, Any],
-                               query: Optional[str] = None,
-                               max_tokens: Optional[int] = None) -> str:
-        """
-        Format protocol analysis data for the AI model.
-        
-        Args:
-            protocol_data: Protocol data from WiresharkMCP.extract_protocol()
-            query: Optional query to include with the context
-            max_tokens: Optional maximum token limit
-            
-        Returns:
-            Formatted protocol analysis string
-        """
-        pass
-    
-    def _estimate_tokens(self, text: str) -> int:
-        """
-        Estimate the number of tokens in a string.
-        
-        This is a very rough approximation. Different models have
-        different tokenization schemes.
-        
-        Args:
-            text: Input text
-            
-        Returns:
-            Estimated token count
-        """
-        # Simple estimation: ~4 characters per token on average
-        return len(text) // 4
-    
-    def _truncate_for_tokens(self, text: str, max_tokens: int) -> str:
-        """
-        Truncate text to fit within a token limit.
-        
-        Args:
-            text: Input text
-            max_tokens: Maximum token limit
-            
-        Returns:
-            Truncated text
-        """
-        if not max_tokens:
-            return text
-            
-        # Estimate characters per token
-        chars_per_token = 4
-        max_chars = max_tokens * chars_per_token
-        
-        if len(text) <= max_chars:
-            return text
-            
-        # Simple truncation with ellipsis
-        return text[:max_chars-3] + "..."
+        # Default implementation - should be overridden by subclasses
+        raise NotImplementedError("Subclasses must implement format_protocol_insights")
