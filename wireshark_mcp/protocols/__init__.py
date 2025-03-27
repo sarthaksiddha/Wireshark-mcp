@@ -32,10 +32,12 @@ class Protocol(Enum):
 # Import protocol analyzers
 from .base import BaseProtocolAnalyzer
 from .http import HTTPProtocolAnalyzer
+from .dns import DNSProtocolAnalyzer
 
 # Registry of protocol analyzers
 _PROTOCOL_ANALYZERS: Dict[Protocol, Type[BaseProtocolAnalyzer]] = {
     Protocol.HTTP: HTTPProtocolAnalyzer,
+    Protocol.DNS: DNSProtocolAnalyzer,
     # Add more protocol analyzers as they are implemented
 }
 
