@@ -1,210 +1,293 @@
 """
-Filter module for handling Wireshark display filters.
+Filter module for Wireshark MCP.
+
+This module provides tools for constructing and manipulating
+Wireshark display filters in a structured way.
 """
 
-import re
-from typing import List, Optional, Union
+from enum import Enum
+from typing import List, Optional, Dict, Any, Union
+
+class FilterOperator(Enum):
+    """Operators for filter expressions."""
+    EQUALS = "=="
+    NOT_EQUALS = "!="
+    GREATER_THAN = ">"
+    LESS_THAN = "<"
+    GREATER_EQUAL = ">="
+    LESS_EQUAL = "<="
+    CONTAINS = "contains"
+    MATCHES = "matches"
+    BITWISE_AND = "&"
+    
+
+class LogicalOperator(Enum):
+    """Logical operators for combining filters."""
+    AND = "and"
+    OR = "or"
+    NOT = "not"
+
+
+class FilterExpression:
+    """
+    Represents a single filter expression in Wireshark display filter syntax.
+    
+    Examples:
+        ip.addr == 192.168.1.1
+        tcp.port == 80
+        http.request.method == "GET"
+    """
+    
+    def __init__(self, 
+                field: str, 
+                operator: FilterOperator, 
+                value: Any,
+                raw: bool = False):
+        """
+        Initialize a filter expression.
+        
+        Args:
+            field: Field name to filter on
+            operator: Comparison operator
+            value: Value to compare against
+            raw: Whether the value should be treated as a raw string
+        """
+        self.field = field
+        self.operator = operator
+        self.value = value
+        self.raw = raw
+        
+    def __str__(self) -> str:
+        """Convert to Wireshark display filter syntax."""
+        if self.raw:
+            return f"{self.field} {self.operator.value} {self.value}"
+        
+        # Format value based on type
+        if isinstance(self.value, str):
+            # Quote strings
+            formatted_value = f'"{self.value}"'
+        elif isinstance(self.value, bool):
+            # Convert booleans to lowercase strings
+            formatted_value = str(self.value).lower()
+        else:
+            # Use string representation for numbers and other types
+            formatted_value = str(self.value)
+            
+        return f"{self.field} {self.operator.value} {formatted_value}"
+
+
+class FilterGroup:
+    """
+    Represents a group of filter expressions combined with logical operators.
+    
+    Examples:
+        (ip.src == 192.168.1.1 and tcp.port == 80)
+        (http.request or http.response)
+    """
+    
+    def __init__(self):
+        """Initialize an empty filter group."""
+        self.expressions: List[Union[FilterExpression, FilterGroup, str]] = []
+        
+    def add(self, expression: Union[FilterExpression, 'FilterGroup', str], 
+            logical_op: Optional[LogicalOperator] = None) -> 'FilterGroup':
+        """
+        Add an expression to the group.
+        
+        Args:
+            expression: Filter expression or group to add
+            logical_op: Logical operator to prefix (not needed for first expression)
+            
+        Returns:
+            Self for chaining
+        """
+        if self.expressions and logical_op:
+            # Add the logical operator first
+            self.expressions.append(logical_op.value)
+            
+        self.expressions.append(expression)
+        return self
+        
+    def __str__(self) -> str:
+        """Convert to Wireshark display filter syntax."""
+        if not self.expressions:
+            return ""
+            
+        # Build filter string
+        parts = []
+        for expr in self.expressions:
+            parts.append(str(expr))
+            
+        # Wrap in parentheses if multiple expressions
+        filter_str = " ".join(parts)
+        if len(self.expressions) > 1:
+            filter_str = f"({filter_str})"
+            
+        return filter_str
 
 
 class Filter:
     """
-    Class for building and validating Wireshark display filters.
+    Main filter class for constructing Wireshark display filters.
     
-    This class helps create and manipulate display filters that can be
-    used with tshark and Wireshark to filter packet data.
+    This class provides a fluent interface for building complex
+    Wireshark display filters in a structured way.
     """
     
-    # Simple validator for filter syntax
-    FILTER_REGEX = re.compile(r'^[\w\s\.\(\)!=<>"\[\]&|]+$')
-    
-    def __init__(self, filter_str: str = ""):
+    def __init__(self, filter_str: Optional[str] = None):
         """
-        Initialize a filter with an optional filter string.
+        Initialize a filter, optionally with a raw filter string.
         
         Args:
-            filter_str: Initial filter string
-            
-        Raises:
-            ValueError: If the filter string has invalid syntax
+            filter_str: Optional raw filter string to use
         """
-        self.filter_str = filter_str
-        if filter_str and not self._validate(filter_str):
-            raise ValueError(f"Invalid filter syntax: {filter_str}")
-    
+        self.root = FilterGroup()
+        self._raw_filter = filter_str
+        
     def __str__(self) -> str:
-        """Return the filter string."""
-        return self.filter_str
+        """Convert to Wireshark display filter syntax."""
+        if self._raw_filter:
+            return self._raw_filter
+            
+        return str(self.root)
     
-    def __bool__(self) -> bool:
-        """Return True if the filter is not empty."""
-        return bool(self.filter_str)
-    
-    def _validate(self, filter_str: str) -> bool:
+    def where(self, field: str, 
+             operator: FilterOperator, 
+             value: Any) -> 'Filter':
         """
-        Validate the syntax of a display filter.
-        
-        This is a simple validator. For full validation, the filter
-        would need to be checked against actual tshark/Wireshark filter syntax.
+        Add a filter condition.
         
         Args:
-            filter_str: Filter string to validate
+            field: Field name to filter on
+            operator: Comparison operator
+            value: Value to compare against
             
         Returns:
-            True if the filter appears valid, False otherwise
+            Self for chaining
         """
-        if not filter_str:
-            return True
-        
-        # Basic syntax check
-        if not self.FILTER_REGEX.match(filter_str):
-            return False
-        
-        # Check for balanced parentheses
-        if filter_str.count('(') != filter_str.count(')'):
-            return False
-        
-        # Check for balanced quotes
-        if filter_str.count('"') % 2 != 0:
-            return False
-        
-        return True
-    
-    def add(self, condition: str, operator: str = "and") -> 'Filter':
-        """
-        Add a condition to the filter.
-        
-        Args:
-            condition: Filter condition to add
-            operator: Operator to use ('and' or 'or')
-            
-        Returns:
-            Self for method chaining
-            
-        Raises:
-            ValueError: If the condition has invalid syntax
-        """
-        if not self._validate(condition):
-            raise ValueError(f"Invalid filter condition: {condition}")
-        
-        if not self.filter_str:
-            self.filter_str = condition
-        else:
-            if operator.lower() not in ("and", "or"):
-                raise ValueError(f"Invalid operator: {operator}")
-            
-            self.filter_str = f"({self.filter_str}) {operator.lower()} ({condition})"
-        
+        expr = FilterExpression(field, operator, value)
+        self.root.add(expr)
         return self
     
-    def or_add(self, condition: str) -> 'Filter':
+    def and_where(self, field: str, 
+                 operator: FilterOperator, 
+                 value: Any) -> 'Filter':
         """
-        Add a condition with 'or' operator.
+        Add a filter condition with AND logic.
         
         Args:
-            condition: Filter condition to add
+            field: Field name to filter on
+            operator: Comparison operator
+            value: Value to compare against
             
         Returns:
-            Self for method chaining
+            Self for chaining
         """
-        return self.add(condition, operator="or")
+        expr = FilterExpression(field, operator, value)
+        self.root.add(expr, LogicalOperator.AND)
+        return self
     
-    @classmethod
-    def from_protocol(cls, protocol: str) -> 'Filter':
+    def or_where(self, field: str, 
+                operator: FilterOperator, 
+                value: Any) -> 'Filter':
         """
-        Create a filter for a specific protocol.
+        Add a filter condition with OR logic.
         
         Args:
-            protocol: Protocol name
+            field: Field name to filter on
+            operator: Comparison operator
+            value: Value to compare against
             
         Returns:
-            Filter instance
+            Self for chaining
         """
-        return cls(f"{protocol.lower()}")
+        expr = FilterExpression(field, operator, value)
+        self.root.add(expr, LogicalOperator.OR)
+        return self
     
-    @classmethod
-    def from_ip(cls, ip: str, direction: Optional[str] = None) -> 'Filter':
+    def group(self, callback=None) -> 'Filter':
         """
-        Create a filter for an IP address.
+        Add a grouped filter condition.
         
         Args:
-            ip: IP address
-            direction: Optional direction ('src', 'dst', or None for both)
+            callback: Optional callback function that receives the group
             
         Returns:
-            Filter instance
+            Self for chaining
         """
-        if direction and direction.lower() not in ('src', 'dst'):
-            raise ValueError("Direction must be 'src', 'dst', or None")
+        group = FilterGroup()
         
-        if direction:
-            return cls(f"ip.{direction.lower()} == {ip}")
-        else:
-            return cls(f"ip.addr == {ip}")
+        if callback:
+            callback(group)
+            
+        self.root.add(group)
+        return self
     
-    @classmethod
-    def from_port(cls, port: Union[int, str], protocol: Optional[str] = "tcp", direction: Optional[str] = None) -> 'Filter':
+    def and_group(self, callback=None) -> 'Filter':
         """
-        Create a filter for a port number.
+        Add a grouped filter condition with AND logic.
         
         Args:
-            port: Port number
-            protocol: Protocol ('tcp' or 'udp')
-            direction: Optional direction ('src', 'dst', or None for both)
+            callback: Optional callback function that receives the group
             
         Returns:
-            Filter instance
+            Self for chaining
         """
-        if protocol.lower() not in ('tcp', 'udp'):
-            raise ValueError("Protocol must be 'tcp' or 'udp'")
+        group = FilterGroup()
         
-        if direction and direction.lower() not in ('src', 'dst'):
-            raise ValueError("Direction must be 'src', 'dst', or None")
-        
-        if direction:
-            return cls(f"{protocol.lower()}.{direction.lower()}port == {port}")
-        else:
-            return cls(f"{protocol.lower()}.port == {port}")
+        if callback:
+            callback(group)
+            
+        self.root.add(group, LogicalOperator.AND)
+        return self
     
-    @classmethod
-    def from_host(cls, host: str) -> 'Filter':
+    def or_group(self, callback=None) -> 'Filter':
         """
-        Create a filter for a host name.
+        Add a grouped filter condition with OR logic.
         
         Args:
-            host: Host name
+            callback: Optional callback function that receives the group
             
         Returns:
-            Filter instance
+            Self for chaining
         """
-        return cls(f"host {host}")
+        group = FilterGroup()
+        
+        if callback:
+            callback(group)
+            
+        self.root.add(group, LogicalOperator.OR)
+        return self
     
-    @classmethod
-    def combine(cls, filters: List[Union[str, 'Filter']], operator: str = "and") -> 'Filter':
+    def raw(self, filter_str: str) -> 'Filter':
         """
-        Combine multiple filters with an operator.
+        Set a raw filter string, replacing any constructed filter.
         
         Args:
-            filters: List of filters or filter strings
-            operator: Operator to use ('and' or 'or')
+            filter_str: Raw filter string in Wireshark display filter syntax
             
         Returns:
-            Combined filter
-            
-        Raises:
-            ValueError: If no filters are provided
+            Self for chaining
         """
-        if not filters:
-            raise ValueError("No filters provided")
-        
-        if operator.lower() not in ("and", "or"):
-            raise ValueError(f"Invalid operator: {operator}")
-        
-        # Convert any strings to Filter objects
-        filter_objs = [f if isinstance(f, Filter) else cls(f) for f in filters]
-        
-        # Combine the filters
-        combined_str = " ".join([f"({str(f)})" for f in filter_objs if f])
-        if combined_str:
-            combined_str = combined_str.replace(") (", f") {operator.lower()} (")
-        
-        return cls(combined_str)
+        self._raw_filter = filter_str
+        return self
+    
+    @staticmethod
+    def equals(field: str, value: Any) -> FilterExpression:
+        """Convenience method for creating an equals expression."""
+        return FilterExpression(field, FilterOperator.EQUALS, value)
+    
+    @staticmethod
+    def not_equals(field: str, value: Any) -> FilterExpression:
+        """Convenience method for creating a not-equals expression."""
+        return FilterExpression(field, FilterOperator.NOT_EQUALS, value)
+    
+    @staticmethod
+    def contains(field: str, value: Any) -> FilterExpression:
+        """Convenience method for creating a contains expression."""
+        return FilterExpression(field, FilterOperator.CONTAINS, value)
+    
+    @staticmethod
+    def matches(field: str, value: Any) -> FilterExpression:
+        """Convenience method for creating a matches expression."""
+        return FilterExpression(field, FilterOperator.MATCHES, value)
