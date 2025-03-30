@@ -536,3 +536,188 @@ class TLSProtocolAnalyzer(BaseProtocolAnalyzer):
             summary += f"Also found {medium_issues} medium and {low_issues} low severity issues."
         
         return summary
+    
+    def _generate_findings(self, 
+                         conversations: List[Dict[str, Any]], 
+                         statistics: Dict[str, Any]) -> List[str]:
+        """Generate key findings from TLS analysis."""
+        findings = []
+        
+        # Check for outdated protocols
+        versions = statistics.get("tls_versions", {})
+        outdated_protocols = [v for v in versions.keys() if v in ("SSL 3.0", "TLS 1.0", "TLS 1.1")]
+        if outdated_protocols:
+            outdated_str = ", ".join(outdated_protocols)
+            findings.append(f"Outdated TLS protocols detected: {outdated_str}")
+        
+        # Check for weak ciphers
+        ciphers = statistics.get("cipher_suites", {})
+        weak_ciphers = [c for c in ciphers.keys() if any(weak in c for weak in self.WEAK_CIPHERS)]
+        if weak_ciphers:
+            findings.append(f"{len(weak_ciphers)} weak cipher suites detected")
+        
+        # Add findings from serious security issues
+        for conv in conversations:
+            for issue in conv.get("security_issues", []):
+                if issue.get("severity") in ("high", "critical"):
+                    # Avoid duplicates by checking if similar finding exists
+                    issue_type = issue.get("type", "")
+                    if not any(issue_type in finding for finding in findings):
+                        findings.append(f"{issue.get('description')}")
+        
+        # Add handshake performance findings
+        slow_handshakes = 0
+        for conv in conversations:
+            handshake = conv.get("handshake", {})
+            completion_time = handshake.get("completion_time")
+            if completion_time and completion_time > 1.0:  # Over 1 second
+                slow_handshakes += 1
+                
+        if slow_handshakes > 0:
+            findings.append(f"{slow_handshakes} connections had slow TLS handshakes (>1s)")
+            
+        return findings
+    
+    def _format_conversation(self, 
+                           conv: Dict[str, Any], 
+                           detail_level: int = 2) -> Dict[str, Any]:
+        """Format a conversation for the context output."""
+        # Basic info always included
+        formatted = {
+            "id": conv.get("conversation_id"),
+            "source": f"{conv.get('source_ip')}:{conv.get('source_port')}",
+            "destination": f"{conv.get('destination_ip')}:{conv.get('destination_port')}",
+            "tls_version": conv.get("handshake", {}).get("tls_version", "Unknown"),
+            "cipher_suite": conv.get("handshake", {}).get("cipher_suite", "Unknown"),
+            "security_issues_count": len(conv.get("security_issues", []))
+        }
+        
+        # Add more details based on detail level
+        if detail_level >= 2:
+            # Add handshake info
+            handshake = conv.get("handshake", {})
+            formatted["handshake_completion_time"] = handshake.get("completion_time")
+            
+            # Add certificate summary
+            certs = conv.get("certificates", [])
+            if certs:
+                formatted["certificates"] = []
+                for cert in certs:
+                    cert_summary = {}
+                    for key in ["issuerCommonName", "subjectCommonName", "notBefore", "notAfter"]:
+                        if key in cert:
+                            cert_summary[key] = cert[key]
+                    formatted["certificates"].append(cert_summary)
+            
+            # Add security issues
+            if conv.get("security_issues"):
+                formatted["security_issues"] = conv.get("security_issues")
+        
+        # Add even more details at highest level
+        if detail_level >= 3:
+            # Add full handshake details
+            formatted["handshake_details"] = conv.get("handshake")
+            
+            # Add application data metrics
+            formatted["application_data"] = conv.get("application_data")
+            
+            # Add packet samples if available
+            if conv.get("packets"):
+                formatted["packet_samples"] = conv.get("packets")
+        
+        return formatted
+    
+    def _assess_security(self, conversations: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Perform a comprehensive security assessment of TLS traffic."""
+        assessment = {
+            "overall_rating": "secure",  # Default, may be downgraded
+            "protocol_security": "secure",
+            "cipher_security": "secure",
+            "certificate_security": "secure",
+            "issues_by_severity": {
+                "critical": 0,
+                "high": 0, 
+                "medium": 0,
+                "low": 0
+            }
+        }
+        
+        # Check and categorize all security issues
+        for conv in conversations:
+            for issue in conv.get("security_issues", []):
+                severity = issue.get("severity", "low")
+                issue_type = issue.get("type", "")
+                
+                # Update issue counts
+                assessment["issues_by_severity"][severity] = assessment["issues_by_severity"].get(severity, 0) + 1
+                
+                # Downgrade specific security ratings based on issue type
+                if issue_type in ("outdated_protocol", "protocol_downgrade"):
+                    assessment["protocol_security"] = "vulnerable"
+                elif issue_type in ("weak_cipher", "insecure_renegotiation"):
+                    assessment["cipher_security"] = "vulnerable"
+                elif issue_type in ("expired_certificate", "weak_signature", "self_signed"):
+                    assessment["certificate_security"] = "vulnerable"
+        
+        # Determine overall rating based on issues
+        if assessment["issues_by_severity"]["critical"] > 0:
+            assessment["overall_rating"] = "critical"
+        elif assessment["issues_by_severity"]["high"] > 0:
+            assessment["overall_rating"] = "vulnerable"
+        elif assessment["issues_by_severity"]["medium"] > 0:
+            assessment["overall_rating"] = "caution"
+        
+        return assessment
+    
+    def _analyze_handshake_patterns(self, conversations: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Analyze TLS handshake patterns and performance."""
+        completion_times = []
+        hello_times = []
+        extensions = {}
+        
+        for conv in conversations:
+            handshake = conv.get("handshake", {})
+            
+            # Collect completion times
+            if handshake.get("completion_time") is not None:
+                completion_times.append(handshake.get("completion_time"))
+            
+            # Collect client hello timestamps
+            client_hello = handshake.get("client_hello", {})
+            if client_hello and client_hello.get("timestamp") is not None:
+                hello_times.append(client_hello.get("timestamp"))
+            
+            # Collect extensions
+            for ext in handshake.get("client_hello", {}).get("extensions", []):
+                ext_type = ext.get("type")
+                if ext_type:
+                    extensions[ext_type] = extensions.get(ext_type, 0) + 1
+        
+        # Calculate average completion time
+        avg_completion_time = sum(completion_times) / len(completion_times) if completion_times else 0
+        
+        # Calculate time distribution of handshakes
+        hello_distribution = {}
+        if hello_times:
+            min_time = min(hello_times)
+            max_time = max(hello_times)
+            range_time = max_time - min_time
+            
+            if range_time > 0:
+                # Create 5 time buckets
+                bucket_size = range_time / 5
+                for t in hello_times:
+                    bucket = int((t - min_time) / bucket_size)
+                    bucket_name = f"T+{bucket*bucket_size:.1f}s to T+{(bucket+1)*bucket_size:.1f}s"
+                    hello_distribution[bucket_name] = hello_distribution.get(bucket_name, 0) + 1
+        
+        return {
+            "average_handshake_time": avg_completion_time,
+            "handshake_time_distribution": {
+                "min": min(completion_times) if completion_times else 0,
+                "max": max(completion_times) if completion_times else 0,
+                "average": avg_completion_time
+            },
+            "hello_time_distribution": hello_distribution,
+            "popular_extensions": dict(sorted(extensions.items(), key=lambda x: x[1], reverse=True)[:5])
+        }
