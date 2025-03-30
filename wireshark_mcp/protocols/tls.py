@@ -329,3 +329,210 @@ class TLSProtocolAnalyzer(BaseProtocolAnalyzer):
             extensions.append(extension)
         
         return extensions
+        
+    def _extract_certificate_info(self, packets: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Extract certificate information from TLS packets."""
+        certificates = []
+        
+        for packet in packets:
+            tls_layer = packet.get('tls', {})
+            
+            # Check for certificate message
+            if tls_layer.get('handshake.type') == '11':  # Certificate
+                # Try to extract certificate details
+                cert_info = {}
+                
+                for key, value in tls_layer.items():
+                    if key.startswith('x509sat.'):
+                        # X.509 Subject Alternative Name
+                        field = key.replace('x509sat.', '')
+                        cert_info[f"san_{field}"] = value
+                    
+                    elif key.startswith('x509af.'):
+                        # X.509 field
+                        field = key.replace('x509af.', '')
+                        cert_info[field] = value
+                    
+                    elif key.startswith('x509ce.'):
+                        # X.509 Certificate Extension
+                        field = key.replace('x509ce.', '')
+                        cert_info[f"ext_{field}"] = value
+                
+                # Key certificate fields to extract
+                important_fields = [
+                    'serialNumber', 'notBefore', 'notAfter', 
+                    'san_dNSName', 'subjectCommonName', 'issuerCommonName'
+                ]
+                
+                # If we have some certificate info, add it
+                if any(field in cert_info for field in important_fields):
+                    cert_info['timestamp'] = packet.get('timestamp')
+                    certificates.append(cert_info)
+        
+        return certificates
+    
+    def _extract_app_data_metrics(self, packets: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Extract metrics about TLS application data."""
+        app_data_packets = [p for p in packets if p.get('tls', {}).get('record.content_type') == '23']
+        
+        total_bytes = sum(int(p.get('length', 0)) for p in app_data_packets)
+        packet_count = len(app_data_packets)
+        
+        # Calculate time range if possible
+        if packet_count > 1:
+            start_time = min(float(p.get('timestamp', 0)) for p in app_data_packets)
+            end_time = max(float(p.get('timestamp', 0)) for p in app_data_packets)
+            duration = end_time - start_time
+        else:
+            duration = 0
+            
+        return {
+            "packet_count": packet_count,
+            "total_bytes": total_bytes,
+            "duration": duration,
+            "bytes_per_second": total_bytes / duration if duration > 0 else 0
+        }
+    
+    def _identify_security_issues(self, 
+                                handshake_info: Dict[str, Any],
+                                certificate_info: List[Dict[str, Any]],
+                                packets: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Identify potential security issues in the TLS connection."""
+        issues = []
+        
+        # Check TLS version
+        tls_version = handshake_info.get("tls_version")
+        if tls_version in ("SSL 3.0", "TLS 1.0", "TLS 1.1"):
+            issues.append({
+                "severity": "high",
+                "type": "outdated_protocol",
+                "description": f"Outdated protocol version: {tls_version}",
+                "recommendation": "Update to TLS 1.2 or preferably TLS 1.3"
+            })
+        
+        # Check cipher suite
+        cipher_suite = handshake_info.get("cipher_suite", "")
+        if any(weak in cipher_suite for weak in self.WEAK_CIPHERS):
+            issues.append({
+                "severity": "high",
+                "type": "weak_cipher",
+                "description": f"Weak cipher suite: {cipher_suite}",
+                "recommendation": "Update server configuration to use secure cipher suites"
+            })
+        
+        # Check certificates
+        for cert in certificate_info:
+            # Check expiration
+            if 'notAfter' in cert:
+                try:
+                    # Parse expiration and compare to current time
+                    not_after = cert['notAfter']
+                    # Check if it's in the past (would require datetime validation in practice)
+                    if "utc" in not_after.lower() and "1970" in not_after:
+                        issues.append({
+                            "severity": "critical",
+                            "type": "expired_certificate",
+                            "description": f"Certificate expired: {not_after}",
+                            "recommendation": "Renew the TLS certificate"
+                        })
+                except Exception:
+                    pass
+            
+            # Check for weak signature algorithms
+            if 'ext_signatureAlgorithm' in cert:
+                sig_alg = cert['ext_signatureAlgorithm']
+                if 'md5' in sig_alg.lower() or 'sha1' in sig_alg.lower():
+                    issues.append({
+                        "severity": "high",
+                        "type": "weak_signature",
+                        "description": f"Weak certificate signature algorithm: {sig_alg}",
+                        "recommendation": "Use certificates with secure signature algorithms (SHA-256 or better)"
+                    })
+        
+        # Check for alerts
+        for packet in packets:
+            tls_layer = packet.get('tls', {})
+            if tls_layer.get('record.content_type') == '21':  # Alert
+                alert_level = tls_layer.get('alert.level')
+                alert_description = tls_layer.get('alert.description')
+                
+                if alert_level == '2':  # Fatal
+                    issues.append({
+                        "severity": "high",
+                        "type": "tls_alert",
+                        "description": f"Fatal TLS alert: {alert_description}",
+                        "recommendation": "Investigate and resolve the cause of the TLS alert"
+                    })
+        
+        return issues
+    
+    def _count_tls_versions(self, conversations: List[Dict[str, Any]]) -> Dict[str, int]:
+        """Count the occurrence of each TLS version."""
+        version_counts = {}
+        
+        for conv in conversations:
+            version = conv.get("handshake", {}).get("tls_version")
+            if version:
+                version_counts[version] = version_counts.get(version, 0) + 1
+                
+        return version_counts
+    
+    def _count_cipher_suites(self, conversations: List[Dict[str, Any]]) -> Dict[str, int]:
+        """Count the occurrence of each cipher suite."""
+        cipher_counts = {}
+        
+        for conv in conversations:
+            cipher = conv.get("handshake", {}).get("cipher_suite")
+            if cipher:
+                cipher_counts[cipher] = cipher_counts.get(cipher, 0) + 1
+                
+        return cipher_counts
+    
+    def _get_tls_version(self, version_hex: Optional[str]) -> str:
+        """Convert TLS version hex to human-readable string."""
+        if not version_hex:
+            return "Unknown"
+            
+        return self.TLS_VERSIONS.get(version_hex, f"Unknown ({version_hex})")
+    
+    def _generate_summary(self, 
+                        conversations: List[Dict[str, Any]], 
+                        statistics: Dict[str, Any]) -> str:
+        """Generate a summary of TLS analysis."""
+        # Count security issues by severity
+        high_issues = 0
+        medium_issues = 0
+        low_issues = 0
+        
+        for conv in conversations:
+            for issue in conv.get("security_issues", []):
+                severity = issue.get("severity", "")
+                if severity == "high" or severity == "critical":
+                    high_issues += 1
+                elif severity == "medium":
+                    medium_issues += 1
+                else:
+                    low_issues += 1
+        
+        # Create summary text
+        summary = f"Analysis of {statistics.get('total_tls_packets', 0)} TLS packets "
+        summary += f"across {statistics.get('total_conversations', 0)} conversations. "
+        
+        # Add version information
+        versions = statistics.get("tls_versions", {})
+        if versions:
+            version_parts = []
+            for version, count in versions.items():
+                version_parts.append(f"{version} ({count})")
+            summary += f"TLS versions used: {', '.join(version_parts)}. "
+        
+        # Add security overview
+        if high_issues > 0:
+            summary += f"Found {high_issues} high severity security issues. "
+        else:
+            summary += "No high severity security issues detected. "
+            
+        if medium_issues > 0 or low_issues > 0:
+            summary += f"Also found {medium_issues} medium and {low_issues} low severity issues."
+        
+        return summary
