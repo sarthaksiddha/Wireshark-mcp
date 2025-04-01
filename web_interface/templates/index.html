@@ -1,0 +1,126 @@
+{% extends 'layout.html' %}
+
+{% block title %}Wireshark MCP - Home{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-upload"></i> Upload Packet Capture
+                </h5>
+            </div>
+            <div class="card-body">
+                <p class="card-text">Upload a packet capture file (.pcap, .pcapng) to analyze with Wireshark MCP.</p>
+                <form action="{{ url_for('upload_file') }}" method="post" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label for="file" class="form-label">Select capture file</label>
+                        <input class="form-control" type="file" id="file" name="file" accept=".pcap,.pcapng,.cap" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-upload"></i> Upload & Analyze
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-info-circle"></i> About Wireshark MCP
+                </h5>
+            </div>
+            <div class="card-body">
+                <p>Wireshark MCP (Model Context Protocol) helps you:</p>
+                <ul>
+                    <li>Extract and understand network packet data</li>
+                    <li>Generate structured contexts for AI analysis</li>
+                    <li>Identify security issues and anomalies</li>
+                    <li>Format data specifically for Claude AI</li>
+                </ul>
+                <p>Supported protocols:</p>
+                <div>
+                    {% for protocol in protocols %}
+                    <span class="badge bg-secondary me-2 mb-2">{{ protocol }}</span>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-card-list"></i> How It Works
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4 text-center mb-3">
+                        <div class="border rounded p-3 h-100">
+                            <i class="bi bi-upload fs-1 text-primary mb-3"></i>
+                            <h5>1. Upload Capture</h5>
+                            <p class="text-muted">Upload your .pcap or .pcapng network capture file</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4 text-center mb-3">
+                        <div class="border rounded p-3 h-100">
+                            <i class="bi bi-activity fs-1 text-primary mb-3"></i>
+                            <h5>2. Analyze Protocols</h5>
+                            <p class="text-muted">MCP extracts and structures protocol data into AI-friendly contexts</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4 text-center mb-3">
+                        <div class="border rounded p-3 h-100">
+                            <i class="bi bi-robot fs-1 text-primary mb-3"></i>
+                            <h5>3. Generate Claude Prompts</h5>
+                            <p class="text-muted">Get optimized prompts ready to send to Claude for deep analysis</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-shield-lock"></i> Security Features
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6><i class="bi bi-search"></i> Detection Capabilities</h6>
+                        <ul>
+                            <li>Port scanning activity</li>
+                            <li>Suspicious traffic patterns</li>
+                            <li>Plaintext authentication</li>
+                            <li>Missing encryption</li>
+                            <li>Unusual connections</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6><i class="bi bi-graph-up"></i> Protocol-Specific Analysis</h6>
+                        <ul>
+                            <li>HTTP: Request/response anomalies</li>
+                            <li>DNS: Domain reputation & tunneling</li>
+                            <li>SMTP: Email security issues</li>
+                            <li>TLS: Encryption quality & certificate issues</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
