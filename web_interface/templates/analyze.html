@@ -1,0 +1,195 @@
+{% extends 'layout.html' %}
+
+{% block title %}Analyze Capture - Wireshark MCP{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-search"></i> Packet Analysis</h2>
+    <a href="{{ url_for('index') }}" class="btn btn-outline-primary">
+        <i class="bi bi-arrow-left"></i> Back to Upload
+    </a>
+</div>
+
+<div class="row">
+    <div class="col-md-4 mb-4">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="card-title mb-0">Capture Summary</h5>
+            </div>
+            <div class="card-body">
+                <p><strong>File:</strong> {{ filename }}</p>
+                <p><strong>Total Packets:</strong> {{ summary.total_packets }}</p>
+                <p><strong>Analyzed Packets:</strong> {{ summary.included_packets }}</p>
+                <p><strong>Duration:</strong> {{ "%.2f"|format(summary.capture_duration|float) }} seconds</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-8 mb-4">
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h5 class="card-title mb-0">Available Protocols</h5>
+            </div>
+            <div class="card-body">
+                <p>Select a protocol to analyze in detail:</p>
+                <div class="row">
+                {% for protocol in available_protocols %}
+                    <div class="col-md-4 mb-3">
+                        <div class="card protocol-card h-100 {% if protocol.has_analyzer %}border-success{% endif %}">
+                            <div class="card-body text-center">
+                                <h5 class="card-title">{{ protocol.name }}</h5>
+                                <p class="mb-2">
+                                    <span class="badge bg-secondary">{{ protocol.count }} packets</span>
+                                </p>
+                                {% if protocol.has_analyzer %}
+                                <a href="{{ url_for('analyze_protocol', filename=filename, protocol=protocol.name) }}" class="btn btn-sm btn-success">
+                                    Analyze
+                                </a>
+                                {% else %}
+                                <button class="btn btn-sm btn-secondary" disabled>
+                                    No Analyzer
+                                </button>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-diagram-3"></i> Protocol Distribution
+                </h5>
+            </div>
+            <div class="card-body">
+                <canvas id="protocolChart" width="400" height="300"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-people"></i> Top Talkers
+                </h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>IP Address</th>
+                            <th>Packet Count</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for ip, count in statistics.top_talkers.items() %}
+                        <tr>
+                            <td>{{ ip }}</td>
+                            <td>{{ count }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12 mb-4">
+        <div class="card">
+            <div class="card-header bg-secondary text-white">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-list-ol"></i> Top Ports
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% for port, count in statistics.top_ports.items() %}
+                    <div class="col-md-3 mb-2">
+                        <div class="card">
+                            <div class="card-body py-2 px-3">
+                                <h6 class="mb-0">{{ port }}</h6>
+                                <small class="text-muted">{{ count }} packets</small>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-dark text-white">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-code"></i> API Access
+                </h5>
+            </div>
+            <div class="card-body">
+                <p>Access this capture data programmatically:</p>
+                <div class="mb-3">
+                    <h6>Basic Context</h6>
+                    <code>GET /api/context/{{ filename }}</code>
+                </div>
+                <div class="mb-3">
+                    <h6>Protocol List</h6>
+                    <code>GET /api/protocols/{{ filename }}</code>
+                </div>
+                <div>
+                    <h6>Protocol Analysis</h6>
+                    <code>GET /api/protocol/{{ filename }}/{protocol_name}</code>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // Create protocol distribution chart
+    const protocols = {{ summary.protocols|tojson }};
+    const protocolLabels = Object.keys(protocols);
+    const protocolData = Object.values(protocols);
+    
+    const ctx = document.getElementById('protocolChart').getContext('2d');
+    const protocolChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: protocolLabels,
+            datasets: [{
+                label: 'Packet Count',
+                data: protocolData,
+                backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                borderColor: 'rgba(54, 162, 235, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            },
+            plugins: {
+                legend: {
+                    display: false
+                }
+            }
+        }
+    });
+</script>
+{% endblock %}
