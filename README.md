@@ -16,28 +16,30 @@ The protocol:
 ## Key Features
 
 - **Packet Summarization**: Convert large pcap files into token-optimized summaries
-- **Protocol Intelligence**: Enhanced context for common protocols (HTTP, DNS, TLS, etc.)
+- **Protocol Intelligence**: Enhanced context for common protocols (HTTP, DNS, TLS, SMTP, etc.)
 - **Flow Tracking**: Group related packets into conversation flows
 - **Anomaly Highlighting**: Emphasize unusual or suspicious patterns
 - **Query Templates**: Pre-built prompts for common network analysis tasks
 - **Visualization Generation**: Create text-based representations of network patterns
 - **Multi-level Abstraction**: View data from raw bytes to high-level behaviors
+- **Web Interface**: Browser-based UI for easier analysis and visualization
 
 ## Project Status
 
 This project is under active development. Currently implemented features:
 
 - Core packet extraction using tshark
-- HTTP and DNS protocol analysis
+- Protocol analyzers for HTTP, DNS, TLS, and SMTP 
 - Claude-specific formatting for optimal AI analysis
 - Security analysis for common threats
 - Basic flow tracking and analysis
+- Web interface for easier usage
 
 Coming soon:
-- Additional protocol analyzers (TLS, SMTP, etc.)
+- Additional protocol analyzers (DHCP, ICMP, etc.)
 - Advanced visualization options
 - Expanded threat detection capabilities
-- Web interface for easier usage
+- Enhanced AI integration options
 
 ## Installation
 
@@ -130,6 +132,32 @@ dns_prompt = formatter.format_protocol_insights(
 )
 ```
 
+### SMTP Analysis Example
+
+```python
+# Analyze SMTP traffic for email patterns and security issues
+smtp_context = mcp.extract_protocol(
+    protocol=Protocol.SMTP,
+    filter=Filter("smtp"),
+    include_headers=True,
+    include_body=False
+)
+
+# Get deeper insights
+smtp_insights = mcp.protocol_insights(
+    protocol=Protocol.SMTP,
+    extract_queries=True,
+    analyze_response_codes=True,
+    detect_tunneling=True
+)
+
+# Generate Claude prompt for SMTP analysis
+smtp_prompt = formatter.format_context(
+    smtp_context,
+    query="Analyze this SMTP traffic for security issues and unusual email patterns"
+)
+```
+
 ### Direct Claude API Integration
 
 ```python
@@ -160,6 +188,25 @@ response = claude.analyze(prompt)
 print(response.analysis)
 ```
 
+## Web Interface
+
+Wireshark MCP includes a web-based user interface for easier analysis:
+
+```bash
+cd web_interface
+pip install -r requirements.txt
+python app.py
+```
+
+This starts a web server at http://localhost:5000 that allows you to:
+
+- Upload PCAP/PCAPNG files
+- Analyze protocol data with a point-and-click interface
+- Generate Claude-optimized prompts
+- View security insights and anomalies
+
+See the [web interface README](web_interface/README.md) for more details.
+
 ## Architecture
 
 The Wireshark MCP system consists of several components:
@@ -170,6 +217,7 @@ The Wireshark MCP system consists of several components:
 4. **Formatters**: Structure data for specific AI systems (Claude)
 5. **Query Templates**: Pre-built analysis queries for common tasks
 6. **AI Connectors**: Optional interfaces to AI systems
+7. **Web Interface**: Browser-based UI for easier analysis
 
 ## For Developers
 
@@ -217,6 +265,7 @@ See the `examples/` directory for more detailed usage examples:
 
 - Basic packet analysis with Claude
 - DNS traffic analysis and anomaly detection
+- SMTP email flow and security analysis
 - Security analysis for threat hunting
 - Customizing protocol analysis for specific needs
 
@@ -226,6 +275,7 @@ See the `examples/` directory for more detailed usage examples:
 - Wireshark/tshark installed on the system
 - `pyshark`, `scapy`, `pydantic`, and `rich` packages
 - Optional: API access to Claude or other AI systems
+- For web interface: Flask and dependencies
 
 ## Contributing
 
@@ -235,6 +285,7 @@ Contributions are welcome! Areas where help is especially appreciated:
 - Performance optimizations
 - Documentation and examples
 - Testing with diverse packet captures
+- Web interface enhancements
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for details on how to contribute.
 
