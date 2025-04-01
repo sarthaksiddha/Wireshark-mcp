@@ -94,6 +94,7 @@ class SMTPProtocolAnalyzer(BaseProtocolAnalyzer):
             response_parameter = smtp_data.get('response', {}).get('parameter')
             
             # Create session key based on src-dst IP pair
+            session_key = None
             if ip_src and ip_dst:
                 session_key = f"{ip_src}-{ip_dst}"
                 
@@ -452,3 +453,227 @@ class SMTPProtocolAnalyzer(BaseProtocolAnalyzer):
                     })
         
         return insights
+    
+    def extract_insights(self,
+                       packets: List[Dict[str, Any]],
+                       extract_queries: bool = True,
+                       analyze_response_codes: bool = True,
+                       detect_tunneling: bool = False) -> Dict[str, Any]:
+        """
+        Generate deeper insights into SMTP traffic.
+        
+        Args:
+            packets: List of packets containing SMTP data
+            extract_queries: Whether to extract detailed query patterns
+            analyze_response_codes: Whether to analyze response code patterns
+            detect_tunneling: Whether to look for potential tunneling
+            
+        Returns:
+            Dictionary containing SMTP insights
+        """
+        insights = {}
+        
+        # Extract features first
+        features = self.extract_features(packets)
+        sessions = features.get('sessions', {})
+        transactions = features.get('transactions', [])
+        
+        # Analyze query patterns if requested
+        if extract_queries:
+            insights['query_patterns'] = self._analyze_query_patterns(transactions)
+        
+        # Analyze response codes if requested
+        if analyze_response_codes:
+            insights['response_analysis'] = self._analyze_response_codes(transactions)
+        
+        # Analyze for potential tunneling
+        if detect_tunneling:
+            insights['tunneling_analysis'] = self._analyze_tunneling(transactions, sessions)
+        
+        # Add email domain analysis
+        insights['domain_analysis'] = self._analyze_domains(transactions)
+        
+        return insights
+    
+    def _analyze_query_patterns(self, transactions: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Analyze SMTP query patterns across transactions."""
+        # Count sender domains
+        sender_domains = {}
+        for transaction in transactions:
+            mail_from = transaction.get('mail_from', '')
+            if mail_from and '@' in mail_from:
+                domain = mail_from.split('@')[-1].lower()
+                sender_domains[domain] = sender_domains.get(domain, 0) + 1
+        
+        # Count recipient domains
+        recipient_domains = {}
+        for transaction in transactions:
+            for rcpt in transaction.get('rcpt_to', []):
+                if rcpt and '@' in rcpt:
+                    domain = rcpt.split('@')[-1].lower()
+                    recipient_domains[domain] = recipient_domains.get(domain, 0) + 1
+        
+        # Get top domains
+        top_sender_domains = sorted(sender_domains.items(), key=lambda x: x[1], reverse=True)[:5]
+        top_recipient_domains = sorted(recipient_domains.items(), key=lambda x: x[1], reverse=True)[:5]
+        
+        return {
+            'top_sender_domains': dict(top_sender_domains),
+            'top_recipient_domains': dict(top_recipient_domains),
+            'total_senders': len(sender_domains),
+            'total_recipient_domains': len(recipient_domains)
+        }
+    
+    def _analyze_response_codes(self, transactions: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Analyze SMTP response code patterns."""
+        # Count response codes
+        response_codes = {}
+        error_messages = {}
+        
+        for transaction in transactions:
+            for response in transaction.get('responses', []):
+                code = response.get('code')
+                message = response.get('parameter', '')
+                
+                if code:
+                    response_codes[code] = response_codes.get(code, 0) + 1
+                    
+                    # Track error messages for 4xx and 5xx codes
+                    if code.startswith(('4', '5')) and message:
+                        error_messages[message] = error_messages.get(message, 0) + 1
+        
+        # Categorize response codes
+        categories = {
+            '2xx': 0,
+            '3xx': 0,
+            '4xx': 0,
+            '5xx': 0
+        }
+        
+        for code, count in response_codes.items():
+            if code.startswith('2'):
+                categories['2xx'] += count
+            elif code.startswith('3'):
+                categories['3xx'] += count
+            elif code.startswith('4'):
+                categories['4xx'] += count
+            elif code.startswith('5'):
+                categories['5xx'] += count
+        
+        # Get top error messages
+        top_errors = sorted(error_messages.items(), key=lambda x: x[1], reverse=True)[:5]
+        
+        return {
+            'response_code_counts': response_codes,
+            'response_categories': categories,
+            'top_error_messages': dict(top_errors)
+        }
+    
+    def _analyze_tunneling(self, 
+                        transactions: List[Dict[str, Any]], 
+                        sessions: Dict[str, Any]) -> Dict[str, Any]:
+        """Analyze for potential SMTP tunneling or abuse."""
+        insights = {
+            'potential_tunneling': False,
+            'suspicious_patterns': []
+        }
+        
+        # Look for unusual data sizes
+        data_sizes = []
+        for transaction in transactions:
+            # Look through command sequence for DATA commands
+            has_large_data = False
+            for cmd in transaction.get('commands', []):
+                if cmd.get('command', '').upper() == 'DATA':
+                    # If we had packet length info, we would check it here
+                    # This is placeholder logic
+                    pass
+            
+            if has_large_data:
+                insights['suspicious_patterns'].append({
+                    'type': 'large_data_transfer',
+                    'mail_from': transaction.get('mail_from'),
+                    'description': 'Unusually large data transfer via SMTP'
+                })
+        
+        # Check for high frequency of connections
+        session_ips = {}
+        for session_key, session in sessions.items():
+            client_ip = session.get('client_ip')
+            if client_ip:
+                session_ips[client_ip] = session_ips.get(client_ip, 0) + 1
+        
+        # Flag IPs with many connections
+        for ip, count in session_ips.items():
+            if count > 5:  # Threshold for suspicious activity
+                insights['suspicious_patterns'].append({
+                    'type': 'high_connection_frequency',
+                    'client_ip': ip,
+                    'connection_count': count,
+                    'description': f'High frequency of SMTP connections from {ip}'
+                })
+        
+        # Set tunneling flag if we found suspicious patterns
+        if insights['suspicious_patterns']:
+            insights['potential_tunneling'] = True
+        
+        return insights
+    
+    def _analyze_domains(self, transactions: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Analyze email domains in transactions."""
+        # Track domains
+        sender_domains = {}
+        recipient_domains = {}
+        
+        for transaction in transactions:
+            # Extract sender domain
+            mail_from = transaction.get('mail_from', '')
+            if mail_from and '@' in mail_from:
+                domain = mail_from.split('@')[-1].lower()
+                sender_domains[domain] = sender_domains.get(domain, 0) + 1
+            
+            # Extract recipient domains
+            for rcpt in transaction.get('rcpt_to', []):
+                if rcpt and '@' in rcpt:
+                    domain = rcpt.split('@')[-1].lower()
+                    recipient_domains[domain] = recipient_domains.get(domain, 0) + 1
+        
+        # Find top domains
+        top_sender_domains = sorted(sender_domains.items(), key=lambda x: x[1], reverse=True)[:5]
+        top_recipient_domains = sorted(recipient_domains.items(), key=lambda x: x[1], reverse=True)[:5]
+        
+        # Calculate internal vs external ratios
+        internal_domains = set()  # This would be configured in a real implementation
+        
+        internal_sender_count = sum(
+            count for domain, count in sender_domains.items() 
+            if domain in internal_domains
+        )
+        external_sender_count = sum(
+            count for domain, count in sender_domains.items() 
+            if domain not in internal_domains
+        )
+        
+        internal_recipient_count = sum(
+            count for domain, count in recipient_domains.items() 
+            if domain in internal_domains
+        )
+        external_recipient_count = sum(
+            count for domain, count in recipient_domains.items() 
+            if domain not in internal_domains
+        )
+        
+        return {
+            'top_sender_domains': dict(top_sender_domains),
+            'top_recipient_domains': dict(top_recipient_domains),
+            'internal_external_ratio': {
+                'senders': {
+                    'internal': internal_sender_count,
+                    'external': external_sender_count
+                },
+                'recipients': {
+                    'internal': internal_recipient_count,
+                    'external': external_recipient_count
+                }
+            }
+        }
