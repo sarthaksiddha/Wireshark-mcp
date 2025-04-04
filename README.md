@@ -41,6 +41,12 @@ Coming soon:
 - Expanded threat detection capabilities
 - Enhanced AI integration options
 
+## Documentation
+
+- [Installation & Configuration Guide](docs/installation.md) - Step-by-step installation instructions
+- [Claude Integration Guide](docs/claude_integration.md) - Detailed guide for connecting with Claude AI
+- [Web Interface README](web_interface/README.md) - Information on using the web interface
+
 ## Installation
 
 ```bash
@@ -51,6 +57,8 @@ For full functionality:
 1. Ensure Wireshark is installed on your system
 2. Install tshark (Wireshark command-line interface)
 3. Configure your API access for the AI model (Claude)
+
+See the [Installation Guide](docs/installation.md) for detailed instructions.
 
 ## Basic Usage
 
@@ -158,12 +166,14 @@ smtp_prompt = formatter.format_context(
 )
 ```
 
-### Direct Claude API Integration
+### Claude API Integration
+
+See the [Claude Integration Guide](docs/claude_integration.md) for detailed instructions on connecting to Claude's API. Here's a simplified example:
 
 ```python
 from wireshark_mcp import WiresharkMCP, Protocol, Filter
 from wireshark_mcp.formatters import ClaudeFormatter
-from wireshark_mcp.ai import ClaudeClient
+from your_claude_client import ClaudeClient  # Your implementation
 
 # Extract HTTP traffic
 mcp = WiresharkMCP("web_traffic.pcap")
