@@ -1,194 +1,335 @@
 {% extends 'layout.html' %}
 
-{% block title %}Analyze Capture - Wireshark MCP{% endblock %}
+{% block title %}Wireshark MCP - Analyze{% endblock %}
+
+{% block head %}
+<style>
+    .protocol-item {
+        transition: all 0.3s ease;
+    }
+    .protocol-item:hover {
+        transform: translateY(-5px);
+    }
+    .statistic-card {
+        transition: all 0.2s ease;
+    }
+    .statistic-card:hover {
+        transform: scale(1.03);
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h2><i class="bi bi-search"></i> Packet Analysis</h2>
-    <a href="{{ url_for('index') }}" class="btn btn-outline-primary">
-        <i class="bi bi-arrow-left"></i> Back to Upload
-    </a>
-</div>
-
-<div class="row">
-    <div class="col-md-4 mb-4">
-        <div class="card">
-            <div class="card-header bg-primary text-white">
-                <h5 class="card-title mb-0">Capture Summary</h5>
-            </div>
-            <div class="card-body">
-                <p><strong>File:</strong> {{ filename }}</p>
-                <p><strong>Total Packets:</strong> {{ summary.total_packets }}</p>
-                <p><strong>Analyzed Packets:</strong> {{ summary.included_packets }}</p>
-                <p><strong>Duration:</strong> {{ "%.2f"|format(summary.capture_duration|float) }} seconds</p>
-            </div>
+<div class="space-y-8">
+    <!-- Header section -->
+    <div class="md:flex md:items-center md:justify-between">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900 dark:text-white">
+                PCAP Analysis: {{ filename }}
+            </h1>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                Packet capture file uploaded on {{ summary.timestamp }}
+            </p>
+        </div>
+        <div class="mt-4 md:mt-0 flex space-x-3">
+            <a href="{{ url_for('index') }}" class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                <i class="bx bx-upload mr-2"></i> Upload Another File
+            </a>
+            <a href="#protocols" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                <i class="bx bx-analyse mr-2"></i> Analyze Protocols
+            </a>
         </div>
     </div>
-    
-    <div class="col-md-8 mb-4">
-        <div class="card">
-            <div class="card-header bg-success text-white">
-                <h5 class="card-title mb-0">Available Protocols</h5>
-            </div>
-            <div class="card-body">
-                <p>Select a protocol to analyze in detail:</p>
-                <div class="row">
-                {% for protocol in available_protocols %}
-                    <div class="col-md-4 mb-3">
-                        <div class="card protocol-card h-100 {% if protocol.has_analyzer %}border-success{% endif %}">
-                            <div class="card-body text-center">
-                                <h5 class="card-title">{{ protocol.name }}</h5>
-                                <p class="mb-2">
-                                    <span class="badge bg-secondary">{{ protocol.count }} packets</span>
-                                </p>
-                                {% if protocol.has_analyzer %}
-                                <a href="{{ url_for('analyze_protocol', filename=filename, protocol=protocol.name) }}" class="btn btn-sm btn-success">
-                                    Analyze
-                                </a>
-                                {% else %}
-                                <button class="btn btn-sm btn-secondary" disabled>
-                                    No Analyzer
-                                </button>
-                                {% endif %}
-                            </div>
-                        </div>
+
+    <!-- Statistics and summary cards -->
+    <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        <!-- Total Packets -->
+        <div class="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg statistic-card">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0 rounded-md bg-blue-500 p-3">
+                        <i class="bx bx-package text-xl text-white"></i>
                     </div>
-                {% endfor %}
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
+                                Total Packets
+                            </dt>
+                            <dd>
+                                <div class="text-lg font-medium text-gray-900 dark:text-white">
+                                    {{ summary.total_packets }}
+                                </div>
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Capture Duration -->
+        <div class="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg statistic-card">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0 rounded-md bg-green-500 p-3">
+                        <i class="bx bx-time text-xl text-white"></i>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
+                                Capture Duration
+                            </dt>
+                            <dd>
+                                <div class="text-lg font-medium text-gray-900 dark:text-white">
+                                    {{ summary.duration_seconds|round(2) }} seconds
+                                </div>
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Avg Packet Size -->
+        <div class="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg statistic-card">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0 rounded-md bg-purple-500 p-3">
+                        <i class="bx bx-file text-xl text-white"></i>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
+                                Avg Packet Size
+                            </dt>
+                            <dd>
+                                <div class="text-lg font-medium text-gray-900 dark:text-white">
+                                    {{ statistics.avg_packet_size|round(1) }} bytes
+                                </div>
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Protocol Count -->
+        <div class="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg statistic-card">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0 rounded-md bg-indigo-500 p-3">
+                        <i class="bx bx-network text-xl text-white"></i>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
+                                Unique Protocols
+                            </dt>
+                            <dd>
+                                <div class="text-lg font-medium text-gray-900 dark:text-white">
+                                    {{ summary.protocols|length }}
+                                </div>
+                            </dd>
+                        </dl>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
-</div>
-
-<div class="row">
-    <div class="col-md-6 mb-4">
-        <div class="card">
-            <div class="card-header bg-info text-white">
-                <h5 class="card-title mb-0">
-                    <i class="bi bi-diagram-3"></i> Protocol Distribution
-                </h5>
-            </div>
-            <div class="card-body">
-                <canvas id="protocolChart" width="400" height="300"></canvas>
+    
+    <!-- Traffic visualization -->
+    <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+        <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
+            <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white">
+                <i class="bx bx-line-chart text-blue-500 mr-2"></i>Traffic Visualization
+            </h3>
+            <p class="mt-1 max-w-2xl text-sm text-gray-500 dark:text-gray-400">
+                Visual representation of captured network traffic
+            </p>
+        </div>
+        <div class="p-6">
+            <div id="network-visualization" class="network-visualization">
+                <div class="flex items-center justify-center h-64">
+                    <div class="text-center">
+                        <i class="bx bx-loader-alt text-blue-500 text-3xl animate-spin mb-4"></i>
+                        <p class="text-gray-600 dark:text-gray-400">Initializing visualization...</p>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
     
-    <div class="col-md-6 mb-4">
-        <div class="card">
-            <div class="card-header bg-warning text-dark">
-                <h5 class="card-title mb-0">
-                    <i class="bi bi-people"></i> Top Talkers
-                </h5>
-            </div>
-            <div class="card-body">
-                <table class="table table-striped">
-                    <thead>
-                        <tr>
-                            <th>IP Address</th>
-                            <th>Packet Count</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for ip, count in statistics.top_talkers.items() %}
-                        <tr>
-                            <td>{{ ip }}</td>
-                            <td>{{ count }}</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+    <!-- Packet timeline -->
+    <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+        <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
+            <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white">
+                <i class="bx bx-slider text-blue-500 mr-2"></i>Packet Timeline
+            </h3>
+            <p class="mt-1 max-w-2xl text-sm text-gray-500 dark:text-gray-400">
+                Timeline of packets in the capture file
+            </p>
+        </div>
+        <div class="p-6">
+            <div id="packet-timeline" class="h-10 w-full bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden relative">
+                <!-- Timeline markers will be inserted here by JavaScript -->
+                <div class="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-2">
+                    <span>Start</span>
+                    <span>End</span>
+                </div>
             </div>
         </div>
     </div>
-</div>
-
-<div class="row">
-    <div class="col-md-12 mb-4">
-        <div class="card">
-            <div class="card-header bg-secondary text-white">
-                <h5 class="card-title mb-0">
-                    <i class="bi bi-list-ol"></i> Top Ports
-                </h5>
-            </div>
-            <div class="card-body">
-                <div class="row">
-                    {% for port, count in statistics.top_ports.items() %}
-                    <div class="col-md-3 mb-2">
-                        <div class="card">
-                            <div class="card-body py-2 px-3">
-                                <h6 class="mb-0">{{ port }}</h6>
-                                <small class="text-muted">{{ count }} packets</small>
-                            </div>
+    
+    <!-- Protocol Analysis Section -->
+    <div id="protocols" class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+        <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
+            <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white">
+                <i class="bx bx-analyse text-blue-500 mr-2"></i>Protocol Analysis
+            </h3>
+            <p class="mt-1 max-w-2xl text-sm text-gray-500 dark:text-gray-400">
+                Available protocols for detailed analysis
+            </p>
+        </div>
+        <div class="p-6">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {% for protocol in available_protocols %}
+                <div class="protocol-item border dark:border-gray-700 rounded-lg overflow-hidden shadow-sm {% if protocol.has_analyzer %}hover:shadow-lg{% endif %}">
+                    <div class="px-4 py-5 bg-gray-50 dark:bg-gray-900 border-b dark:border-gray-700">
+                        <div class="flex justify-between items-center">
+                            <span class="text-lg font-medium text-gray-900 dark:text-white">{{ protocol.name }}</span>
+                            <span class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300">
+                                {{ protocol.count }} packets
+                            </span>
                         </div>
                     </div>
+                    <div class="px-4 py-4">
+                        {% if protocol.has_analyzer %}
+                        <a href="{{ url_for('analyze_protocol', filename=filename, protocol=protocol.name) }}" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 w-full justify-center transition-colors">
+                            <i class="bx bx-analyse mr-2"></i> Analyze {{ protocol.name }}
+                        </a>
+                        {% else %}
+                        <button disabled class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-gray-500 bg-gray-100 dark:bg-gray-700 dark:text-gray-400 w-full justify-center cursor-not-allowed">
+                            <i class="bx bx-x-circle mr-2"></i> Analysis not available
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Stats & Summary -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Protocol Distribution -->
+        <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+            <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
+                <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white">
+                    <i class="bx bx-pie-chart-alt-2 text-blue-500 mr-2"></i>Protocol Distribution
+                </h3>
+            </div>
+            <div class="p-6">
+                <div class="space-y-4">
+                    {% for protocol, count in summary.protocols.items() %}
+                    {% if count > 0 %}
+                    <div>
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ protocol }}</span>
+                            <span class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ count }} packets ({{ ((count / summary.total_packets) * 100)|round(1) }}%)</span>
+                        </div>
+                        <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
+                            <div class="bg-blue-600 h-2.5 rounded-full" style="width: {{ (count / summary.total_packets) * 100 }}%"></div>
+                        </div>
+                    </div>
+                    {% endif %}
                     {% endfor %}
                 </div>
             </div>
         </div>
-    </div>
-</div>
-
-<div class="row">
-    <div class="col-md-12">
-        <div class="card">
-            <div class="card-header bg-dark text-white">
-                <h5 class="card-title mb-0">
-                    <i class="bi bi-code"></i> API Access
-                </h5>
+        
+        <!-- IP Conversations -->
+        <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+            <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
+                <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white">
+                    <i class="bx bx-transfer text-blue-500 mr-2"></i>Top IP Conversations
+                </h3>
             </div>
-            <div class="card-body">
-                <p>Access this capture data programmatically:</p>
-                <div class="mb-3">
-                    <h6>Basic Context</h6>
-                    <code>GET /api/context/{{ filename }}</code>
-                </div>
-                <div class="mb-3">
-                    <h6>Protocol List</h6>
-                    <code>GET /api/protocols/{{ filename }}</code>
-                </div>
-                <div>
-                    <h6>Protocol Analysis</h6>
-                    <code>GET /api/protocol/{{ filename }}/{protocol_name}</code>
+            <div class="p-6">
+                <div class="overflow-hidden">
+                    <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                        <thead class="bg-gray-50 dark:bg-gray-700">
+                            <tr>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Source</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Destination</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Packets</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                            {% for convo in statistics.conversations[:5] %}
+                            <tr>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">{{ convo.src_ip }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">{{ convo.dst_ip }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">{{ convo.packets }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
     </div>
+    
+    <!-- Action buttons -->
+    <div class="flex items-center justify-center space-x-4 pt-4">
+        <a href="{{ url_for('index') }}" class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+            <i class="bx bx-arrow-back mr-2"></i> Back to Home
+        </a>
+        
+        <!-- This would be the direct Claude analysis button if API is configured -->
+        <button id="direct-claude-btn" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
+            <i class="bx bx-bot mr-2"></i> Generate Claude Prompt
+        </button>
+    </div>
 </div>
+
+<!-- Hidden visualization data -->
+<script type="application/json" id="visualization-data">
+{
+    "nodes": [
+        {% for protocol, count in summary.protocols.items() %}
+        {% if count > 0 %}
+        {"id": "{{ protocol }}", "name": "{{ protocol }}", "size": {{ count|float * 3 }}},
+        {% endif %}
+        {% endfor %}
+        
+        {% for convo in statistics.conversations[:10] %}
+        {"id": "{{ convo.src_ip }}", "name": "{{ convo.src_ip }}", "size": 10},
+        {"id": "{{ convo.dst_ip }}", "name": "{{ convo.dst_ip }}", "size": 10},
+        {% endfor %}
+    ],
+    "links": [
+        {% for convo in statistics.conversations[:10] %}
+        {"source": "{{ convo.src_ip }}", "target": "{{ convo.dst_ip }}", "value": {{ convo.packets }}},
+        {% endfor %}
+    ]
+}
+</script>
 {% endblock %}
 
 {% block scripts %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    // Create protocol distribution chart
-    const protocols = {{ summary.protocols|tojson }};
-    const protocolLabels = Object.keys(protocols);
-    const protocolData = Object.values(protocols);
-    
-    const ctx = document.getElementById('protocolChart').getContext('2d');
-    const protocolChart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: protocolLabels,
-            datasets: [{
-                label: 'Packet Count',
-                data: protocolData,
-                backgroundColor: 'rgba(54, 162, 235, 0.5)',
-                borderColor: 'rgba(54, 162, 235, 1)',
-                borderWidth: 1
-            }]
-        },
-        options: {
-            scales: {
-                y: {
-                    beginAtZero: true
-                }
-            },
-            plugins: {
-                legend: {
-                    display: false
-                }
-            }
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize direct Claude button
+        const directClaudeBtn = document.getElementById('direct-claude-btn');
+        if (directClaudeBtn) {
+            directClaudeBtn.addEventListener('click', function() {
+                // This would typically generate a Claude prompt - for now just show a message
+                showToast('Claude prompt functionality is not configured. Please use protocol-specific analysis.', 'info');
+            });
+        }
+        
+        // Initialize visualization once D3.js is loaded
+        if (window.d3 && document.getElementById('network-visualization')) {
+            initNetworkVisualization();
         }
     });
 </script>
