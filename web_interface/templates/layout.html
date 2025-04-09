@@ -1,150 +1,164 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Wireshark MCP{% endblock %}</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.3/font/bootstrap-icons.css">
-    <style>
-        .navbar-brand {
-            font-weight: bold;
-        }
-        
-        .nav-protocol {
-            padding: 0.5rem 1rem;
-            border-radius: 0.25rem;
-            margin-right: 0.5rem;
-            background-color: #f8f9fa;
-            border: 1px solid #dee2e6;
-            display: inline-block;
-        }
-        
-        .protocol-badge {
-            margin-left: 0.5rem;
-        }
-        
-        pre.json {
-            background-color: #f8f9fa;
-            padding: 1rem;
-            border-radius: 0.25rem;
-            max-height: 400px;
-            overflow: auto;
-        }
-        
-        .scroll-box {
-            max-height: 600px;
-            overflow-y: auto;
-            border: 1px solid #dee2e6;
-            border-radius: 0.25rem;
-            padding: 1rem;
-        }
-        
-        .packet-badge {
-            font-size: 0.8rem;
-        }
-        
-        .packet-row {
-            border-bottom: 1px solid #eee;
-            padding: 0.5rem 0;
-        }
-        
-        .packet-row:hover {
-            background-color: #f8f9fa;
-        }
-        
-        .footer {
-            margin-top: 2rem;
-            padding: 1rem 0;
-            border-top: 1px solid #dee2e6;
-        }
-        
-        .protocol-card {
-            transition: transform 0.2s;
-        }
-        
-        .protocol-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-        }
-        
-        .claude-prompt {
-            background-color: #f8f9fa;
-            padding: 1rem;
-            border-radius: 0.25rem;
-            border-left: 4px solid #6610f2;
-        }
-    </style>
+    
+    <!-- CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/boxicons@2.1.4/css/boxicons.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    
     {% block head %}{% endblock %}
 </head>
-<body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
-        <div class="container">
-            <a class="navbar-brand" href="{{ url_for('index') }}">
-                <i class="bi bi-activity"></i> Wireshark MCP
-            </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav me-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('index') }}">
-                            <i class="bi bi-house-door"></i> Home
+<body class="bg-gray-50 dark:bg-gray-900 dark:text-white transition-colors duration-200">
+    <!-- Toast Container -->
+    <div id="toast-container" class="fixed top-4 right-4 z-50"></div>
+    
+    <!-- Navigation Bar -->
+    <nav class="bg-white dark:bg-gray-800 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex">
+                    <div class="flex-shrink-0 flex items-center">
+                        <a href="{{ url_for('index') }}" class="flex items-center">
+                            <i class="bx bx-line-chart text-blue-600 text-3xl mr-2"></i>
+                            <span class="font-bold text-xl text-gray-900 dark:text-white">Wireshark MCP</span>
                         </a>
-                    </li>
-                </ul>
-                <form class="d-flex" action="{{ url_for('cleanup') }}" method="post">
-                    <button class="btn btn-outline-light" type="submit">
-                        <i class="bi bi-trash"></i> Cleanup Old Files
+                    </div>
+                    <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
+                        <a href="{{ url_for('index') }}" class="border-transparent text-gray-500 dark:text-gray-300 hover:text-gray-700 dark:hover:text-white hover:border-gray-300 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                            <i class="bx bx-home-alt mr-1"></i> Home
+                        </a>
+                    </div>
+                </div>
+                <div class="flex items-center">
+                    <!-- Dark mode toggle -->
+                    <button id="dark-mode-toggle" class="dark-mode-toggle text-gray-500 dark:text-gray-300 mr-4">
+                        <i class="bx bx-moon moon text-xl"></i>
+                        <i class="bx bx-sun sun text-xl hidden"></i>
+                    </button>
+                    
+                    <!-- Cleanup button -->
+                    <form class="hidden sm:block" action="{{ url_for('cleanup') }}" method="post">
+                        <button class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-500 hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500" type="submit">
+                            <i class="bx bx-trash mr-2"></i> Cleanup Old Files
+                        </button>
+                    </form>
+                    
+                    <!-- Mobile menu button -->
+                    <div class="sm:hidden flex items-center">
+                        <button type="button" class="mobile-menu-button p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500" aria-controls="mobile-menu" aria-expanded="false">
+                            <i class="bx bx-menu text-2xl"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Mobile menu -->
+        <div class="sm:hidden hidden" id="mobile-menu">
+            <div class="pt-2 pb-3 space-y-1">
+                <a href="{{ url_for('index') }}" class="bg-gray-50 dark:bg-gray-700 border-blue-500 text-blue-700 dark:text-white block pl-3 pr-4 py-2 border-l-4 text-base font-medium">
+                    <i class="bx bx-home-alt mr-1"></i> Home
+                </a>
+                <form action="{{ url_for('cleanup') }}" method="post" class="block w-full">
+                    <button class="w-full text-left text-gray-500 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-300 block pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium" type="submit">
+                        <i class="bx bx-trash mr-1"></i> Cleanup Old Files
                     </button>
                 </form>
             </div>
         </div>
     </nav>
 
-    <div class="container mb-4">
+    <!-- Flash messages -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                    <div class="alert alert-{{ category if category != 'message' else 'info' }} alert-dismissible fade show">
-                        {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    <div class="mb-4 rounded-md p-4 {% if category == 'error' %}bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400{% elif category == 'success' %}bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400{% else %}bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400{% endif %} fade-in">
+                        <div class="flex">
+                            <div class="flex-shrink-0">
+                                {% if category == 'error' %}
+                                    <i class="bx bx-x-circle text-red-400 text-xl"></i>
+                                {% elif category == 'success' %}
+                                    <i class="bx bx-check-circle text-green-400 text-xl"></i>
+                                {% else %}
+                                    <i class="bx bx-info-circle text-blue-400 text-xl"></i>
+                                {% endif %}
+                            </div>
+                            <div class="ml-3">
+                                <p class="text-sm font-medium">{{ message }}</p>
+                            </div>
+                            <div class="ml-auto pl-3">
+                                <div class="-mx-1.5 -my-1.5">
+                                    <button type="button" class="inline-flex rounded-md p-1.5 {% if category == 'error' %}text-red-500 hover:bg-red-100 dark:hover:bg-red-800{% elif category == 'success' %}text-green-500 hover:bg-green-100 dark:hover:bg-green-800{% else %}text-blue-500 hover:bg-blue-100 dark:hover:bg-blue-800{% endif %} focus:outline-none">
+                                        <span class="sr-only">Dismiss</span>
+                                        <i class="bx bx-x text-xl"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 {% endfor %}
             {% endif %}
         {% endwith %}
-        
-        {% block content %}{% endblock %}
     </div>
+    
+    <!-- Main content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {% block content %}{% endblock %}
+    </main>
 
-    <footer class="footer">
-        <div class="container">
-            <div class="row">
-                <div class="col-md-6">
-                    <p><small>&copy; 2025 Wireshark MCP</small></p>
-                </div>
-                <div class="col-md-6 text-end">
-                    <p>
-                        <small>
-                            <a href="https://github.com/sarthaksiddha/Wireshark-mcp" target="_blank">
-                                <i class="bi bi-github"></i> GitHub
-                            </a>
-                        </small>
+    <!-- Footer -->
+    <footer class="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 mt-12">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <div class="flex flex-col sm:flex-row justify-between items-center">
+                <div class="mb-4 sm:mb-0">
+                    <p class="text-sm text-gray-500 dark:text-gray-400">
+                        &copy; 2025 Wireshark MCP - Model Context Protocol
                     </p>
+                </div>
+                <div class="flex space-x-4">
+                    <a href="https://github.com/sarthaksiddha/Wireshark-mcp" target="_blank" class="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
+                        <i class="bx bxl-github text-xl"></i>
+                        <span class="ml-1">GitHub</span>
+                    </a>
+                    <a href="https://claude.ai" target="_blank" class="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
+                        <i class="bx bx-bot text-xl"></i>
+                        <span class="ml-1">Claude AI</span>
+                    </a>
                 </div>
             </div>
         </div>
     </footer>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Include JavaScript libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/d3@7.8.2/dist/d3.min.js"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    
+    <!-- Mobile menu script -->
     <script>
-        // Enable tooltips
-        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
-        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-            return new bootstrap.Tooltip(tooltipTriggerEl)
-        })
+        document.addEventListener('DOMContentLoaded', function() {
+            const mobileMenuButton = document.querySelector('.mobile-menu-button');
+            const mobileMenu = document.getElementById('mobile-menu');
+            
+            if (mobileMenuButton && mobileMenu) {
+                mobileMenuButton.addEventListener('click', function() {
+                    mobileMenu.classList.toggle('hidden');
+                });
+            }
+            
+            // Close alert buttons
+            document.querySelectorAll('.alert button').forEach(button => {
+                button.addEventListener('click', function() {
+                    this.closest('.alert').remove();
+                });
+            });
+        });
     </script>
+    
     {% block scripts %}{% endblock %}
 </body>
 </html>
