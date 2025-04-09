@@ -9,10 +9,6 @@ A specialized protocol for extracting, structuring, and transmitting network pac
 
 Wireshark MCP provides a standardized approach for translating complex network packet captures into structured contexts that AI models can effectively process and analyze. This bridges the gap between low-level network data and high-level AI understanding.
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/sarthaksiddha/Wireshark-mcp/main/docs/images/wireshark-mcp-flow.png" alt="Wireshark MCP Flow" width="600"/>
-</p>
-
 The protocol:
 1. **Extracts** relevant packet data from Wireshark captures
 2. **Structures** this information in AI-friendly formats
@@ -44,7 +40,6 @@ This will generate a Claude-ready markdown file that you can copy and paste into
 - **Query Templates**: Pre-built prompts for common network analysis tasks
 - **Visualization Generation**: Create text-based representations of network patterns
 - **Multi-level Abstraction**: View data from raw bytes to high-level behaviors
-- **Web Interface**: Browser-based UI for easier analysis and visualization
 - **Cross-Platform**: Works on Windows, macOS, and Linux
 
 ## Installation Guides
@@ -59,7 +54,7 @@ For detailed installation instructions specific to your operating system:
 ## Documentation
 
 - [Claude Integration Guide](docs/claude_integration.md) - Detailed guide for connecting with Claude AI
-- [Web Interface README](web_interface/README.md) - Information on using the web interface
+- [Web Interface Explanation](docs/web_interface_explained.md) - Understanding when to use the web interface vs. scripts
 - [Utility Scripts](scripts/README.md) - Helpful scripts for PCAP analysis
 
 ## Basic Usage
@@ -89,6 +84,36 @@ claude_prompt = formatter.format_context(
 with open("claude_prompt.md", "w") as f:
     f.write(claude_prompt)
 ```
+
+## Analysis Methods
+
+### Simple Script (Recommended Method)
+
+The simplest way to analyze PCAP files and generate Claude prompts:
+
+```bash
+python scripts/simple_pcap_analysis.py path/to/your/capture.pcap
+```
+
+This creates a markdown file you can directly copy into Claude at [claude.ai](https://claude.ai).
+
+### Web Interface (Optional)
+
+If you prefer a graphical approach, we also provide a web interface:
+
+```bash
+cd web_interface
+pip install -r requirements.txt
+python app.py
+```
+
+This starts a web server at http://localhost:5000 with features like:
+- Upload PCAP/PCAPNG files through your browser
+- Point-and-click protocol selection and analysis
+- Generate Claude-optimized prompts
+- View security insights and anomalies
+
+See [Why Use the Web Interface?](docs/web_interface_explained.md) for details on when to use each approach.
 
 ## Using with Claude
 
@@ -127,27 +152,6 @@ response = client.analyze(prompt)
 ```
 
 See the [Claude Integration Guide](docs/claude_integration.md) for detailed API instructions.
-
-## Web Interface
-
-For a graphical approach, use the included web interface:
-
-```bash
-cd web_interface
-pip install -r requirements.txt
-python app.py
-```
-
-This starts a web server at http://localhost:5000 that allows you to:
-
-- Upload PCAP/PCAPNG files
-- Analyze protocol data with a point-and-click interface
-- Generate Claude-optimized prompts
-- View security insights and anomalies
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/sarthaksiddha/Wireshark-mcp/main/docs/images/web-interface.png" alt="Web Interface" width="600"/>
-</p>
 
 ## Advanced Use Cases
 
