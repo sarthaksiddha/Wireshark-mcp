@@ -1,10 +1,17 @@
 # Wireshark MCP (Model Context Protocol)
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+
 A specialized protocol for extracting, structuring, and transmitting network packet data from Wireshark to AI systems like Claude in a context-optimized format.
 
 ## What is Wireshark MCP?
 
 Wireshark MCP provides a standardized approach for translating complex network packet captures into structured contexts that AI models can effectively process and analyze. This bridges the gap between low-level network data and high-level AI understanding.
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/sarthaksiddha/Wireshark-mcp/main/docs/images/wireshark-mcp-flow.png" alt="Wireshark MCP Flow" width="600"/>
+</p>
 
 The protocol:
 1. **Extracts** relevant packet data from Wireshark captures
@@ -12,6 +19,21 @@ The protocol:
 3. **Summarizes** large packet collections into digestible contexts
 4. **Translates** protocol-specific details into natural language
 5. **Contextualizes** network flows for more meaningful analysis
+
+## Quick Start
+
+For the fastest way to analyze a PCAP file:
+
+```bash
+# Clone the repository
+git clone https://github.com/sarthaksiddha/Wireshark-mcp.git
+cd Wireshark-mcp
+
+# Run the simple analysis script
+python scripts/simple_pcap_analysis.py path/to/your/capture.pcap
+```
+
+This will generate a Claude-ready markdown file that you can copy and paste into your conversation with Claude.
 
 ## Key Features
 
@@ -23,42 +45,22 @@ The protocol:
 - **Visualization Generation**: Create text-based representations of network patterns
 - **Multi-level Abstraction**: View data from raw bytes to high-level behaviors
 - **Web Interface**: Browser-based UI for easier analysis and visualization
+- **Cross-Platform**: Works on Windows, macOS, and Linux
 
-## Project Status
+## Installation Guides
 
-This project is under active development. Currently implemented features:
+For detailed installation instructions specific to your operating system:
 
-- Core packet extraction using tshark
-- Protocol analyzers for HTTP, DNS, TLS, and SMTP 
-- Claude-specific formatting for optimal AI analysis
-- Security analysis for common threats
-- Basic flow tracking and analysis
-- Web interface for easier usage
-
-Coming soon:
-- Additional protocol analyzers (DHCP, ICMP, etc.)
-- Advanced visualization options
-- Expanded threat detection capabilities
-- Enhanced AI integration options
+- [Windows Installation Guide](docs/windows_installation.md)
+- [macOS Installation Guide](docs/macos_installation.md)
+- [Linux Installation Guide](docs/linux_installation.md)
+- [General Installation & Configuration Guide](docs/installation.md)
 
 ## Documentation
 
-- [Installation & Configuration Guide](docs/installation.md) - Step-by-step installation instructions
 - [Claude Integration Guide](docs/claude_integration.md) - Detailed guide for connecting with Claude AI
 - [Web Interface README](web_interface/README.md) - Information on using the web interface
-
-## Installation
-
-```bash
-pip install wireshark-mcp
-```
-
-For full functionality:
-1. Ensure Wireshark is installed on your system
-2. Install tshark (Wireshark command-line interface)
-3. Configure your API access for the AI model (Claude)
-
-See the [Installation Guide](docs/installation.md) for detailed instructions.
+- [Utility Scripts](scripts/README.md) - Helpful scripts for PCAP analysis
 
 ## Basic Usage
 
@@ -83,28 +85,71 @@ claude_prompt = formatter.format_context(
     query="What unusual patterns do you see in this HTTP traffic?"
 )
 
-# Send to Claude (using your preferred method)
-# claude_response = send_to_claude(claude_prompt)
+# Save to file for use with Claude
+with open("claude_prompt.md", "w") as f:
+    f.write(claude_prompt)
 ```
 
-## Advanced Usage
+## Using with Claude
 
-### Flow Analysis
+There are two main ways to use Wireshark MCP with Claude:
+
+### 1. Simple Script Approach (Recommended)
+
+For quick analysis without complex setup:
+
+```bash
+python scripts/simple_pcap_analysis.py path/to/your/capture.pcap
+```
+
+This generates a markdown file you can copy and paste into Claude at [claude.ai](https://claude.ai).
+
+### 2. API Integration
+
+For programmatic integration with Claude's API:
 
 ```python
-# Extract conversation flows
-flows = mcp.extract_flows(
-    client_ip="192.168.1.5",
-    include_details=True,
-    max_flows=5
-)
+from claude_client import ClaudeClient  # Your implementation
+from wireshark_mcp import WiresharkMCP
+from wireshark_mcp.formatters import ClaudeFormatter
 
-# Generate Claude context for flow analysis
-flow_prompt = formatter.format_flows(
-    flows,
-    query="Analyze the TLS handshake in these flows and identify any issues"
-)
+# Process the PCAP file
+mcp = WiresharkMCP("capture.pcap")
+context = mcp.generate_context()
+
+# Format for Claude
+formatter = ClaudeFormatter()
+prompt = formatter.format_context(context, query="Analyze this network traffic")
+
+# Send to Claude API
+client = ClaudeClient(api_key="your_api_key")
+response = client.analyze(prompt)
 ```
+
+See the [Claude Integration Guide](docs/claude_integration.md) for detailed API instructions.
+
+## Web Interface
+
+For a graphical approach, use the included web interface:
+
+```bash
+cd web_interface
+pip install -r requirements.txt
+python app.py
+```
+
+This starts a web server at http://localhost:5000 that allows you to:
+
+- Upload PCAP/PCAPNG files
+- Analyze protocol data with a point-and-click interface
+- Generate Claude-optimized prompts
+- View security insights and anomalies
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/sarthaksiddha/Wireshark-mcp/main/docs/images/web-interface.png" alt="Web Interface" width="600"/>
+</p>
+
+## Advanced Use Cases
 
 ### Security Analysis
 
@@ -140,95 +185,6 @@ dns_prompt = formatter.format_protocol_insights(
 )
 ```
 
-### SMTP Analysis Example
-
-```python
-# Analyze SMTP traffic for email patterns and security issues
-smtp_context = mcp.extract_protocol(
-    protocol=Protocol.SMTP,
-    filter=Filter("smtp"),
-    include_headers=True,
-    include_body=False
-)
-
-# Get deeper insights
-smtp_insights = mcp.protocol_insights(
-    protocol=Protocol.SMTP,
-    extract_queries=True,
-    analyze_response_codes=True,
-    detect_tunneling=True
-)
-
-# Generate Claude prompt for SMTP analysis
-smtp_prompt = formatter.format_context(
-    smtp_context,
-    query="Analyze this SMTP traffic for security issues and unusual email patterns"
-)
-```
-
-### Claude API Integration
-
-See the [Claude Integration Guide](docs/claude_integration.md) for detailed instructions on connecting to Claude's API. Here's a simplified example:
-
-```python
-from wireshark_mcp import WiresharkMCP, Protocol, Filter
-from wireshark_mcp.formatters import ClaudeFormatter
-from your_claude_client import ClaudeClient  # Your implementation
-
-# Extract HTTP traffic
-mcp = WiresharkMCP("web_traffic.pcap")
-http_context = mcp.extract_protocol(
-    protocol=Protocol.HTTP,
-    filter=Filter("ip.addr == 192.168.1.5"),
-    include_headers=True,
-    include_body=False,
-    max_conversations=10
-)
-
-# Format for Claude with specific query
-formatter = ClaudeFormatter()
-prompt = formatter.format_protocol_analysis(
-    http_context,
-    query="Review these HTTP requests and identify any potential security vulnerabilities"
-)
-
-# Send to Claude
-claude = ClaudeClient(api_key="your_api_key")
-response = claude.analyze(prompt)
-print(response.analysis)
-```
-
-## Web Interface
-
-Wireshark MCP includes a web-based user interface for easier analysis:
-
-```bash
-cd web_interface
-pip install -r requirements.txt
-python app.py
-```
-
-This starts a web server at http://localhost:5000 that allows you to:
-
-- Upload PCAP/PCAPNG files
-- Analyze protocol data with a point-and-click interface
-- Generate Claude-optimized prompts
-- View security insights and anomalies
-
-See the [web interface README](web_interface/README.md) for more details.
-
-## Architecture
-
-The Wireshark MCP system consists of several components:
-
-1. **Packet Extractors**: Interface with Wireshark/tshark to extract packet data
-2. **Context Generators**: Process packet data into optimized contexts
-3. **Protocol Analyzers**: Protocol-specific understanding and analysis
-4. **Formatters**: Structure data for specific AI systems (Claude)
-5. **Query Templates**: Pre-built analysis queries for common tasks
-6. **AI Connectors**: Optional interfaces to AI systems
-7. **Web Interface**: Browser-based UI for easier analysis
-
 ## For Developers
 
 ### Extending Protocol Support
@@ -253,8 +209,6 @@ wireshark_mcp.register_protocol_analyzer(CustomProtocolAnalyzer())
 
 ### Building Custom Formatters
 
-You can create formatters for AI systems other than Claude by extending the BaseFormatter class:
-
 ```python
 from wireshark_mcp.formatters import BaseFormatter
 
@@ -269,23 +223,21 @@ formatter = CustomAIFormatter()
 ai_prompt = formatter.format_context(context, query="Analyze this traffic")
 ```
 
-## Examples
+## Project Roadmap
 
-See the `examples/` directory for more detailed usage examples:
+### Near-Term Enhancements
+- Additional protocol analyzers (DHCP, ICMP, etc.)
+- Advanced visualization options
+- Expanded threat detection capabilities
+- Enhanced AI integration options
 
-- Basic packet analysis with Claude
-- DNS traffic analysis and anomaly detection
-- SMTP email flow and security analysis
-- Security analysis for threat hunting
-- Customizing protocol analysis for specific needs
-
-## Requirements
-
-- Python 3.8+
-- Wireshark/tshark installed on the system
-- `pyshark`, `scapy`, `pydantic`, and `rich` packages
-- Optional: API access to Claude or other AI systems
-- For web interface: Flask and dependencies
+### Future Vision
+- Real-time packet capture and analysis
+- ML-based anomaly detection
+- Integration with additional AI systems
+- Collaborative analysis features
+- Cloud-based analysis capabilities
+- Custom protocol definition language
 
 ## Contributing
 
@@ -298,6 +250,10 @@ Contributions are welcome! Areas where help is especially appreciated:
 - Web interface enhancements
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for details on how to contribute.
+
+## Open for Collaboration
+
+This project welcomes collaboration from network security professionals, AI researchers, and developers. If you're interested in contributing or have ideas for improving Wireshark MCP, please open an issue or reach out to the maintainers. Together, we can build better tools for network analysis through AI.
 
 ## License
 
