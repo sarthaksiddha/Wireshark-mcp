@@ -45,6 +45,7 @@ This will generate a Claude-ready markdown file that you can copy and paste into
 - **Visualization Generation**: Create text-based representations of network patterns
 - **Multi-level Abstraction**: View data from raw bytes to high-level behaviors
 - **Web Interface**: Browser-based UI for easier analysis and visualization
+- **Agent-to-Agent (A2A) Integration**: Expose packet analysis as an A2A-compatible agent
 - **Cross-Platform**: Works on Windows, macOS, and Linux
 
 ## Installation Guides
@@ -59,6 +60,8 @@ For detailed installation instructions specific to your operating system:
 ## Documentation
 
 - [Claude Integration Guide](docs/claude_integration.md) - Detailed guide for connecting with Claude AI
+- [A2A Module Documentation](docs/a2a_module.md) - Guide for using the Agent-to-Agent integration
+- [A2A Security Guide](docs/agent_to_agent_integration.md) - Security considerations for A2A integration
 - [Web Interface README](web_interface/README.md) - Information on using the web interface
 - [Utility Scripts](scripts/README.md) - Helpful scripts for PCAP analysis
 
@@ -149,6 +152,25 @@ This starts a web server at http://localhost:5000 that allows you to:
   <img src="https://raw.githubusercontent.com/sarthaksiddha/Wireshark-mcp/main/docs/images/web-interface.png" alt="Web Interface" width="600"/>
 </p>
 
+## A2A Integration
+
+For Agent-to-Agent (A2A) protocol integration, use the A2A module:
+
+```bash
+# Start the A2A server
+python -m wireshark_mcp.a2a.cli server --pcap-file path/to/capture.pcap
+
+# In another terminal, get the agent card
+python -m wireshark_mcp.a2a.cli agent-card
+
+# Analyze a PCAP file using the A2A CLI
+python -m wireshark_mcp.a2a.cli analyze path/to/capture.pcap --output analysis.json
+```
+
+The A2A module enables other AI agents to discover and communicate with Wireshark MCP using Google's A2A protocol. This allows for seamless integration with agent ecosystems and multi-agent workflows.
+
+See the [A2A Module Documentation](docs/a2a_module.md) for detailed usage instructions and the [A2A Security Guide](docs/agent_to_agent_integration.md) for security considerations.
+
 ## Advanced Use Cases
 
 ### Security Analysis
@@ -223,13 +245,32 @@ formatter = CustomAIFormatter()
 ai_prompt = formatter.format_context(context, query="Analyze this traffic")
 ```
 
+### Creating A2A-Compatible Agents
+
+```python
+from wireshark_mcp.core import WiresharkMCP
+from wireshark_mcp.a2a.agent import WiresharkA2AAgent
+from wireshark_mcp.a2a.integration import WiresharkA2AIntegration
+
+# Create a specialized agent
+wireshark_mcp = WiresharkMCP(pcap_path="capture.pcap")
+agent = WiresharkA2AAgent(
+    name="DNS Analysis Agent",
+    description="Specialized agent for DNS traffic analysis"
+)
+integration = WiresharkA2AIntegration(wireshark_mcp, agent)
+
+# Now you can expose this agent through an A2A server
+```
+
 ## Project Roadmap
 
 ### Near-Term Enhancements
 - Additional protocol analyzers (DHCP, ICMP, etc.)
 - Advanced visualization options
 - Expanded threat detection capabilities
-- Enhanced AI integration options
+- Enhanced A2A integration capabilities
+- Multi-agent analysis workflows
 
 ### Future Vision
 - Real-time packet capture and analysis
@@ -248,6 +289,7 @@ Contributions are welcome! Areas where help is especially appreciated:
 - Documentation and examples
 - Testing with diverse packet captures
 - Web interface enhancements
+- A2A integration improvements
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for details on how to contribute.
 
