@@ -144,3 +144,135 @@ class SecurityMonitor:
             List of high severity events
         """
         return [e for e in self.events if e.severity >= threshold]
+
+
+class PromptInjectionDefense:
+    """
+    Defense mechanisms against prompt injection attacks.
+    Detects and mitigates attempts to manipulate AI agent behavior.
+    """
+    
+    # Patterns that might indicate prompt injection attempts
+    INJECTION_PATTERNS = [
+        r"ignore\s+(?:all\s+)?(?:previous|prior|above)\s+instructions",
+        r"disregard\s+(?:all\s+)?(?:previous|prior|above)",
+        r"forget\s+(?:all\s+)?(?:previous|prior|above)",
+        r"do\s+not\s+(?:follow|adhere\s+to)\s+(?:previous|prior|above)",
+        r"new\s+instructions:(?!.*secure|sanitize|verify)",
+        r"instead,?\s+(?:do|generate|create|provide|give\s+me)",
+        r"(?:actually|in\s+reality),?\s+(?:do|generate|create|provide|give\s+me)",
+        r"(?:context|system|role)\s+prompt",
+        r"act\s+as\s+(?:if\s+)?you\s+(?:are|were)\s+(?:not|never)",
+        r"you\s+are\s+now\s+(?:a|an)\s+(?!secure|sanitizer|validator)",
+        r"never\s+mind\s+safety",
+        r"bypass",
+        r"workaround",
+        r"hack\s+the\s+system",
+        r"circumvent",
+        r"prompt\s+injection"
+    ]
+    
+    # Content types we should be particularly cautious about
+    SENSITIVE_CONTENT_TYPES = {
+        "instruction": 0.8,  # Instructions/commands have high risk
+        "role_definition": 0.7,  # Attempts to redefine agent role
+        "security_bypass": 0.9,  # Explicit bypass attempts
+        "unexpected_directive": 0.6  # Unusual directives
+    }
+    
+    @classmethod
+    def detect_prompt_injection(cls, text: str) -> Optional[Dict[str, Any]]:
+        """
+        Detect potential prompt injection attempts in text.
+        
+        Args:
+            text: The text to analyze
+            
+        Returns:
+            Dictionary with details if injection detected, None otherwise
+        """
+        if not text:
+            return None
+            
+        # Convert to lowercase for pattern matching
+        text_lower = text.lower()
+        
+        # Check for injection patterns
+        pattern_matches = []
+        for pattern in cls.INJECTION_PATTERNS:
+            matches = re.findall(pattern, text_lower)
+            if matches:
+                pattern_matches.extend(matches)
+        
+        # If we have pattern matches, classify the injection attempt
+        if pattern_matches:
+            # Determine the content type
+            content_type = cls._classify_content_type(text_lower)
+            
+            # Calculate severity based on pattern matches and content type
+            base_severity = 0.5 if len(pattern_matches) == 1 else min(0.9, 0.5 + (len(pattern_matches) - 1) * 0.1)
+            severity_multiplier = cls.SENSITIVE_CONTENT_TYPES.get(content_type, 0.5)
+            severity = base_severity * severity_multiplier
+            
+            return {
+                "detected": True,
+                "matches": pattern_matches,
+                "content_type": content_type,
+                "severity": severity,
+                "description": f"Potential prompt injection detected with {len(pattern_matches)} matching patterns"
+            }
+        
+        return None
+    
+    @classmethod
+    def _classify_content_type(cls, text: str) -> str:
+        """
+        Classify the type of content in the text.
+        
+        Args:
+            text: The text to classify
+            
+        Returns:
+            Content type classification
+        """
+        if re.search(r"ignore|disregard|forget|do\s+not\s+follow", text):
+            return "instruction"
+        
+        if re.search(r"you\s+are\s+now|act\s+as|you\s+will\s+be|you\s+have\s+become", text):
+            return "role_definition"
+        
+        if re.search(r"bypass|workaround|hack|circumvent|override|security", text):
+            return "security_bypass"
+        
+        return "unexpected_directive"
+    
+    @classmethod
+    def sanitize_prompt(cls, text: str, detection_result: Optional[Dict[str, Any]] = None) -> str:
+        """
+        Sanitize text that might contain prompt injection attempts.
+        
+        Args:
+            text: The text to sanitize
+            detection_result: Result from detect_prompt_injection if already performed
+            
+        Returns:
+            Sanitized text
+        """
+        if not text:
+            return ""
+            
+        # If detection result not provided, perform detection
+        if detection_result is None:
+            detection_result = cls.detect_prompt_injection(text)
+            
+        # If no injection detected, return the original text
+        if not detection_result:
+            return text
+            
+        # Sanitize based on the detected patterns
+        sanitized_text = text
+        for match in detection_result.get("matches", []):
+            # Replace the match with a sanitized version
+            sanitized_text = sanitized_text.replace(match, "[FILTERED CONTENT]")
+            
+        return sanitized_text
