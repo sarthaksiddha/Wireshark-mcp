@@ -1,0 +1,246 @@
+{
+  "agentCard": {
+    "name": "ExampleAgent",
+    "description": "An example A2A agent for demonstration purposes",
+    "url": "https://api.example.com/a2a",
+    "provider": {
+      "organization": "Example Organization",
+      "url": "https://example.com"
+    },
+    "version": "1.0.0",
+    "documentationUrl": "https://example.com/docs",
+    "capabilities": {
+      "streaming": true,
+      "pushNotifications": true,
+      "stateTransitionHistory": true
+    },
+    "authentication": {
+      "schemes": ["bearer", "basic"],
+      "credentials": null
+    },
+    "defaultInputModes": ["text"],
+    "defaultOutputModes": ["text"],
+    "skills": [
+      {
+        "id": "write",
+        "name": "Writing Assistant",
+        "description": "Can write various types of content",
+        "tags": ["writing", "creative", "content"],
+        "examples": [
+          "Write me a blog post about AI protocols",
+          "Draft an email to my team about our new project"
+        ],
+        "inputModes": ["text"],
+        "outputModes": ["text"]
+      },
+      {
+        "id": "analyze",
+        "name": "Data Analyzer",
+        "description": "Can analyze various types of structured data",
+        "tags": ["analysis", "data", "visualization"],
+        "examples": [
+          "Analyze this CSV file and extract insights",
+          "Create a summary of these quarterly results"
+        ],
+        "inputModes": ["text", "file"],
+        "outputModes": ["text", "data"]
+      }
+    ]
+  },
+  "task": {
+    "id": "task-12345",
+    "sessionId": "session-6789",
+    "status": {
+      "state": "working",
+      "timestamp": "2025-04-28T17:15:30Z"
+    },
+    "artifacts": [
+      {
+        "name": "Analysis Result",
+        "description": "Result of data analysis task",
+        "parts": [
+          {
+            "type": "text",
+            "text": "Based on the analysis, the data shows a significant trend in...",
+            "metadata": {
+              "format": "markdown"
+            }
+          },
+          {
+            "type": "data",
+            "data": {
+              "summary": {
+                "average": 73.2,
+                "median": 68.5,
+                "trend": "increasing"
+              }
+            },
+            "metadata": {
+              "dataType": "analysis-summary"
+            }
+          }
+        ],
+        "index": 0,
+        "metadata": {
+          "createdAt": "2025-04-28T17:16:00Z"
+        }
+      }
+    ],
+    "history": [
+      {
+        "role": "user",
+        "parts": [
+          {
+            "type": "text",
+            "text": "Can you analyze this dataset and tell me the key trends?",
+            "metadata": null
+          },
+          {
+            "type": "file",
+            "file": {
+              "name": "quarterly_data.csv",
+              "mimeType": "text/csv",
+              "bytes": "base64encodedcontentwouldbehere..."
+            },
+            "metadata": {
+              "fileSize": 15240
+            }
+          }
+        ],
+        "metadata": {
+          "timestamp": "2025-04-28T17:15:00Z"
+        }
+      },
+      {
+        "role": "agent",
+        "parts": [
+          {
+            "type": "text",
+            "text": "I'll analyze this dataset for you. Let me extract the key trends...",
+            "metadata": null
+          }
+        ],
+        "metadata": {
+          "timestamp": "2025-04-28T17:15:10Z"
+        }
+      }
+    ],
+    "metadata": {
+      "requestSource": "web",
+      "priority": "normal"
+    }
+  },
+  "requests": {
+    "sendTask": {
+      "jsonrpc": "2.0",
+      "id": "req-123",
+      "method": "tasks/send",
+      "params": {
+        "id": "task-12345",
+        "message": {
+          "role": "user",
+          "parts": [
+            {
+              "type": "text",
+              "text": "Can you analyze this dataset and tell me the key trends?"
+            },
+            {
+              "type": "file",
+              "file": {
+                "name": "quarterly_data.csv",
+                "mimeType": "text/csv",
+                "bytes": "base64encodedcontentwouldbehere..."
+              }
+            }
+          ]
+        }
+      }
+    },
+    "getTask": {
+      "jsonrpc": "2.0",
+      "id": "req-456",
+      "method": "tasks/get",
+      "params": {
+        "id": "task-12345",
+        "historyLength": 10
+      }
+    },
+    "cancelTask": {
+      "jsonrpc": "2.0",
+      "id": "req-789",
+      "method": "tasks/cancel",
+      "params": {
+        "id": "task-12345"
+      }
+    }
+  },
+  "responses": {
+    "sendTaskResponse": {
+      "jsonrpc": "2.0",
+      "id": "req-123",
+      "result": {
+        "id": "task-12345",
+        "status": {
+          "state": "working",
+          "timestamp": "2025-04-28T17:15:10Z"
+        }
+      }
+    },
+    "streamingUpdate": {
+      "jsonrpc": "2.0",
+      "id": "req-123",
+      "result": {
+        "id": "task-12345",
+        "status": {
+          "state": "completed",
+          "message": {
+            "role": "agent",
+            "parts": [
+              {
+                "type": "text",
+                "text": "Based on my analysis, the key trends in your data are..."
+              }
+            ]
+          },
+          "timestamp": "2025-04-28T17:15:45Z"
+        },
+        "final": true
+      }
+    },
+    "artifactUpdate": {
+      "jsonrpc": "2.0",
+      "id": "req-123",
+      "result": {
+        "id": "task-12345",
+        "artifact": {
+          "name": "Data Summary",
+          "parts": [
+            {
+              "type": "data",
+              "data": {
+                "summary": {
+                  "trend": "upward",
+                  "confidence": 0.87,
+                  "keyMetrics": {
+                    "growth": "12.3%",
+                    "volatility": "low"
+                  }
+                }
+              }
+            }
+          ],
+          "index": 0
+        }
+      }
+    },
+    "errorResponse": {
+      "jsonrpc": "2.0",
+      "id": "req-456",
+      "error": {
+        "code": -32001,
+        "message": "Task not found",
+        "data": null
+      }
+    }
+  }
+}
