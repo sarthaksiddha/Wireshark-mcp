@@ -46,6 +46,7 @@ This will generate a Claude-ready markdown file that you can copy and paste into
 - **Multi-level Abstraction**: View data from raw bytes to high-level behaviors
 - **Web Interface**: Browser-based UI for easier analysis and visualization
 - **Agent-to-Agent (A2A) Integration**: Expose packet analysis as an A2A-compatible agent
+- **Secure Communication**: Robust message signatures for secure agent-to-agent communication
 - **Cross-Platform**: Works on Windows, macOS, and Linux
 
 ## Installation Guides
@@ -62,6 +63,7 @@ For detailed installation instructions specific to your operating system:
 - [Claude Integration Guide](docs/claude_integration.md) - Detailed guide for connecting with Claude AI
 - [A2A Module Documentation](docs/a2a_module.md) - Guide for using the Agent-to-Agent integration
 - [A2A Security Guide](docs/agent_to_agent_integration.md) - Security considerations for A2A integration
+- [Message Security Signatures](docs/security_signature.md) - Guide for secure message signing and verification
 - [Web Interface README](web_interface/README.md) - Information on using the web interface
 - [Utility Scripts](scripts/README.md) - Helpful scripts for PCAP analysis
 
@@ -170,6 +172,32 @@ python -m wireshark_mcp.a2a.cli analyze path/to/capture.pcap --output analysis.j
 The A2A module enables other AI agents to discover and communicate with Wireshark MCP using Google's A2A protocol. This allows for seamless integration with agent ecosystems and multi-agent workflows.
 
 See the [A2A Module Documentation](docs/a2a_module.md) for detailed usage instructions and the [A2A Security Guide](docs/agent_to_agent_integration.md) for security considerations.
+
+## Secure Agent Communication
+
+For secure agent-to-agent communication, use the message signature features:
+
+```python
+from wireshark_mcp.security import AgentSecurityWrapper, SecurityMonitor
+
+# Create secured agents
+security_monitor = SecurityMonitor()
+secured_agent = AgentSecurityWrapper(agent, security_monitor)
+
+# Generate secure message signatures
+message = "Important security alert: Potential data exfiltration detected"
+signature_data = secured_agent.generate_message_signature(message)
+
+# Verify messages from other agents
+if secured_agent.verify_message_signature(received_message, signature_data):
+    # Process verified message
+    process_message(received_message)
+else:
+    # Handle tampered message
+    handle_security_incident(received_message)
+```
+
+See the [Message Security Signatures](docs/security_signature.md) guide for detailed instructions on implementing secure message signing and verification.
 
 ## Advanced Use Cases
 
