@@ -276,3 +276,178 @@ class PromptInjectionDefense:
             sanitized_text = sanitized_text.replace(match, "[FILTERED CONTENT]")
             
         return sanitized_text
+
+
+class DataLeakageDefense:
+    """
+    Defense mechanisms against data leakage in A2A communications.
+    Detects and prevents sensitive information from being inappropriately shared.
+    """
+    
+    # Patterns for different types of potentially sensitive data
+    PII_PATTERNS = {
+        "email": (r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b", 0.7),
+        "ip_address": (r"\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b", 0.6),
+        "credit_card": (r"\b(?:\d{4}[- ]?){3}\d{4}\b", 0.9),
+        "ssn": (r"\b\d{3}-\d{2}-\d{4}\b", 0.9),
+        "phone_number": (r"\b(?:\+\d{1,2}\s)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}\b", 0.7),
+        "password": (r"\b(?:password|passwd|pwd)(?::\s?| is | = ).*\b", 0.9),
+        "api_key": (r"\b(?:api[_-]?key|access[_-]?token|secret[_-]?key)(?::\s?| is | = ).*\b", 0.9),
+        "private_key": (r"-----BEGIN (?:RSA|OPENSSH|DSA|EC|PGP) PRIVATE KEY-----", 1.0)
+    }
+    
+    @classmethod
+    def detect_pii(cls, text: str) -> List[Dict[str, Any]]:
+        """
+        Detect potentially sensitive personally identifiable information in text.
+        
+        Args:
+            text: The text to analyze
+            
+        Returns:
+            List of detected PII items with details
+        """
+        if not text:
+            return []
+            
+        detected_items = []
+        
+        # Check for each PII pattern
+        for pii_type, (pattern, severity) in cls.PII_PATTERNS.items():
+            matches = re.findall(pattern, text)
+            
+            for match in matches:
+                detected_items.append({
+                    "type": pii_type,
+                    "match": match,
+                    "severity": severity,
+                    "description": f"Detected potential {pii_type} in text"
+                })
+        
+        return detected_items
+    
+    @classmethod
+    def redact_pii(cls, text: str, detected_items: Optional[List[Dict[str, Any]]] = None) -> str:
+        """
+        Redact personally identifiable information from text.
+        
+        Args:
+            text: The text to redact
+            detected_items: Result from detect_pii if already performed
+            
+        Returns:
+            Redacted text
+        """
+        if not text:
+            return ""
+            
+        # If detected items not provided, perform detection
+        if detected_items is None:
+            detected_items = cls.detect_pii(text)
+            
+        # If no PII detected, return the original text
+        if not detected_items:
+            return text
+            
+        # Redact each detected item
+        redacted_text = text
+        for item in detected_items:
+            match = item["match"]
+            pii_type = item["type"]
+            
+            # Create appropriate redaction based on PII type
+            if pii_type == "email":
+                redaction = "[EMAIL REDACTED]"
+            elif pii_type == "ip_address":
+                redaction = "[IP ADDRESS REDACTED]"
+            elif pii_type == "credit_card":
+                redaction = "[CREDIT CARD REDACTED]"
+            elif pii_type == "ssn":
+                redaction = "[SSN REDACTED]"
+            elif pii_type == "phone_number":
+                redaction = "[PHONE NUMBER REDACTED]"
+            elif pii_type == "password":
+                redaction = "[PASSWORD REDACTED]"
+            elif pii_type == "api_key":
+                redaction = "[API KEY REDACTED]"
+            elif pii_type == "private_key":
+                redaction = "[PRIVATE KEY REDACTED]"
+            else:
+                redaction = "[SENSITIVE INFORMATION REDACTED]"
+                
+            # Replace the match with the redaction
+            redacted_text = redacted_text.replace(match, redaction)
+            
+        return redacted_text
+
+
+class SecurityPolicy:
+    """
+    Security policy enforcement for A2A agents and communications.
+    Defines and enforces permissions and access controls.
+    """
+    
+    def __init__(self, name: str, description: str = ""):
+        """
+        Initialize a security policy.
+        
+        Args:
+            name: Name of the policy
+            description: Description of the policy
+        """
+        self.name = name
+        self.description = description
+        self.permissions: Dict[str, Dict[str, Any]] = {}
+        self.role_permissions: Dict[str, Set[str]] = {}
+    
+    def add_permission(self, permission_id: str, description: str, default_granted: bool = False) -> None:
+        """
+        Add a permission to the policy.
+        
+        Args:
+            permission_id: Identifier for the permission
+            description: Description of the permission
+            default_granted: Whether the permission is granted by default
+        """
+        self.permissions[permission_id] = {
+            "description": description,
+            "default_granted": default_granted
+        }
+    
+    def add_role(self, role_id: str, granted_permissions: List[str]) -> None:
+        """
+        Add a role with specified permissions to the policy.
+        
+        Args:
+            role_id: Identifier for the role
+            granted_permissions: List of permissions granted to the role
+        """
+        # Validate that all permissions exist
+        for permission_id in granted_permissions:
+            if permission_id not in self.permissions:
+                raise ValueError(f"Permission {permission_id} does not exist")
+                
+        self.role_permissions[role_id] = set(granted_permissions)
+    
+    def check_permission(self, role_id: str, permission_id: str) -> bool:
+        """
+        Check if a role has a specific permission.
+        
+        Args:
+            role_id: Identifier for the role
+            permission_id: Identifier for the permission
+            
+        Returns:
+            True if the role has the permission, False otherwise
+        """
+        # Check if the permission exists
+        if permission_id not in self.permissions:
+            return False
+            
+        # Check if the role exists
+        if role_id not in self.role_permissions:
+            # Fall back to default permission setting
+            return self.permissions[permission_id]["default_granted"]
+            
+        # Check if the permission is granted to the role
+        return permission_id in self.role_permissions[role_id]
