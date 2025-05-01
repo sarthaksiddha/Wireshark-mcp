@@ -46,6 +46,8 @@ This will generate a Claude-ready markdown file that you can copy and paste into
 - **Multi-level Abstraction**: View data from raw bytes to high-level behaviors
 - **Web Interface**: Browser-based UI for easier analysis and visualization
 - **Agent-to-Agent (A2A) Integration**: Expose packet analysis as an A2A-compatible agent
+- **Advanced Security Framework**: Comprehensive security controls for data protection and communication
+- **IP Address Protection**: Multiple strategies for anonymizing sensitive network addresses
 - **Secure Communication**: Robust message signatures for secure agent-to-agent communication
 - **Cross-Platform**: Works on Windows, macOS, and Linux
 
@@ -63,6 +65,8 @@ For detailed installation instructions specific to your operating system:
 - [Claude Integration Guide](docs/claude_integration.md) - Detailed guide for connecting with Claude AI
 - [A2A Module Documentation](docs/a2a_module.md) - Guide for using the Agent-to-Agent integration
 - [A2A Security Guide](docs/agent_to_agent_integration.md) - Security considerations for A2A integration
+- [IP Protection Guide](docs/ip_protection.md) - Detailed guide on IP address anonymization and obfuscation
+- [Security Manager Guide](docs/security_manager.md) - Comprehensive guide to the unified security framework
 - [Message Security Signatures](docs/security_signature.md) - Guide for secure message signing and verification
 - [Web Interface README](web_interface/README.md) - Information on using the web interface
 - [Utility Scripts](scripts/README.md) - Helpful scripts for PCAP analysis
@@ -173,7 +177,67 @@ The A2A module enables other AI agents to discover and communicate with Wireshar
 
 See the [A2A Module Documentation](docs/a2a_module.md) for detailed usage instructions and the [A2A Security Guide](docs/agent_to_agent_integration.md) for security considerations.
 
-## Secure Agent Communication
+## Security Features
+
+### IP Address Protection
+
+Protect sensitive IP addresses in your packet captures:
+
+```python
+from wireshark_mcp import WiresharkMCP, IPProtectionManager
+
+# Initialize with a packet capture
+mcp = WiresharkMCP("sensitive_capture.pcap")
+
+# Create an IP protection manager with pseudonymization
+ip_protector = IPProtectionManager(IPProtectionManager.PSEUDONYMIZE)
+
+# Add specific ranges to protect
+ip_protector.add_protected_range("192.168.0.0/16")
+
+# Extract packet data
+context = mcp.generate_context()
+
+# Protect sensitive IP addresses
+protected_packets = []
+for packet in context["packets"]:
+    protected_packet = ip_protector.protect_packet(packet)
+    protected_packets.append(protected_packet)
+
+context["packets"] = protected_packets
+
+# Now use the protected context for analysis
+```
+
+See the [IP Protection Guide](docs/ip_protection.md) for detailed information.
+
+### Unified Security Management
+
+For comprehensive security controls, use the SecurityManager:
+
+```python
+from wireshark_mcp import WiresharkMCP, SecurityManager
+
+# Initialize components
+mcp = WiresharkMCP("capture.pcap")
+security_manager = SecurityManager()
+
+# Configure security features
+security_manager.configure_ip_protection()
+security_manager.add_protected_ip_range("10.0.0.0/8")
+
+# Extract and protect data
+context = mcp.generate_context()
+protected_packets = security_manager.protect_packets(context["packets"])
+context["packets"] = protected_packets
+
+# Evaluate content security
+risks = security_manager.evaluate_content_security("Sensitive analysis text")
+```
+
+See the [Security Manager Guide](docs/security_manager.md) for comprehensive documentation.
+
+### Secure Agent Communication
 
 For secure agent-to-agent communication, use the message signature features:
 
@@ -197,7 +261,7 @@ else:
     handle_security_incident(received_message)
 ```
 
-See the [Message Security Signatures](docs/security_signature.md) guide for detailed instructions on implementing secure message signing and verification.
+See the [Message Security Signatures](docs/security_signature.md) guide for detailed instructions.
 
 ## Advanced Use Cases
 
