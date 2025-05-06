@@ -23,7 +23,7 @@ class WiresharkMCPServer:
     def __init__(self):
         self.server = Server(
             name="wireshark-mcp-server",
-            description="Wireshark Network Analysis through Model Context Protocol"
+            description="Wireshark Network Analysis - Model Context Protocol (MCP) Server for direct integration with Claude"
         )
         
         # Register tools
@@ -168,7 +168,7 @@ class WiresharkMCPServer:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Wireshark MCP Server")
+    parser = argparse.ArgumentParser(description="Wireshark MCP Server - Direct integration with Claude through Model Context Protocol")
     parser.add_argument("--host", default="127.0.0.1", help="Hostname to bind to (for SSE transport)")
     parser.add_argument("--port", type=int, default=5000, help="Port to bind to (for SSE transport)")
     parser.add_argument("--stdio", action="store_true", help="Use stdio transport instead of SSE")
