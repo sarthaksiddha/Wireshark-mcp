@@ -3,7 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 
-A Model Context Protocol (MCP) server for integrating Wireshark network analysis capabilities with AI systems like Claude.
+A Model Context Protocol (MCP) server for integrating Wireshark network analysis capabilities with AI systems like Claude. This implementation provides direct integration with Claude without requiring manual copy/paste of prompts.
 
 ## What is Wireshark MCP?
 
@@ -151,11 +151,11 @@ For seamless integration with Claude Desktop:
 python mcp_server.py --stdio
 ```
 
-Then configure Claude Desktop as described in the "Configuring Claude Desktop" section above.
+Then configure Claude Desktop as described in the "Configuring Claude Desktop" section above. This method provides direct integration without any copy/paste needed.
 
 ### 2. Simple Script Approach
 
-For quick analysis without complex setup:
+For quick analysis without complex setup (requires copy/paste):
 
 ```bash
 python scripts/simple_pcap_analysis.py path/to/your/capture.pcap
